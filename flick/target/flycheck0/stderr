@@ -1,0 +1,19 @@
+    Updating crates.io index
+error: failed to get `serde_derive` as a dependency of package `serde v1.0.229`
+    ... which satisfies dependency `serde = "^1.0.229"` of package `localsend v0.1.0 (/storage/emulated/0/Documents/flick-workspace/flick/third_party/localsend/packages/core)`
+    ... which satisfies path dependency `localsend` of package `flick-core v0.1.0 (/storage/emulated/0/Documents/flick-workspace/flick/crates/flick-core)`
+
+Caused by:
+  failed to load source for dependency `serde_derive`
+
+Caused by:
+  unable to update registry `crates-io`
+
+Caused by:
+  download of se/rd/serde_derive failed
+
+Caused by:
+  curl failed
+
+Caused by:
+  [55] Failed sending data to the peer (OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 0)

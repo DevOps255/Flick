@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["crates/flick-proto", "crates/flick-gesture", "crates/flick-core"]
+# Vendored projects keep their own workspaces and lockfiles.
+exclude = ["third_party"]
+
+[workspace.package]
+edition = "2021"
+license = "AGPL-3.0-only"

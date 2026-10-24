@@ -1,0 +1,4 @@
+# LocalSend pins 1.97.1 and DashBeam needs 1.91 or newer, so the newer one wins.
+[toolchain]
+channel = "1.97.1"
+components = ["clippy", "rustfmt"]

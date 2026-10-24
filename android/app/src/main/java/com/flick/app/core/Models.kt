@@ -1,12 +1,19 @@
 package com.flick.app.core
 
-/** A device found nearby. [proximity] runs from 0 (far) to 1 (touching). */
+/**
+ * A device found nearby. [proximity] runs from 0 (far) to 1 (touching).
+ * [ready] is true once the device answered over TLS with the announced
+ * certificate, which means files can be sent to it right now.
+ */
 data class Peer(
     val id: String,
     val name: String,
     val flickId: String,
     val isFriend: Boolean,
     val proximity: Float,
+    val ready: Boolean = true,
+    /** Why the phone is not ready yet, when something went wrong. Shown instead of "Connecting". */
+    val note: String? = null,
 )
 
 /** The local user, shown on the home card and announced to peers. */

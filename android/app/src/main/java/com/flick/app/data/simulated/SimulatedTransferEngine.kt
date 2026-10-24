@@ -5,6 +5,7 @@ import com.flick.app.core.Peer
 import com.flick.app.core.TransferEngine
 import com.flick.app.core.TransferProgress
 import com.flick.app.core.TransferStatus
+import com.flick.app.data.acoustic.spread
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -31,15 +32,5 @@ class SimulatedTransferEngine @Inject constructor() : TransferEngine {
         const val PREPARE_MS = 600L
         const val TICK_MS = 100L
         const val BYTES_PER_TICK = 2_000_000L
-    }
-}
-
-/** Fills files in order: the first is finished before the second starts. */
-internal fun spread(files: List<FileItem>, sent: Long): List<FileItem> {
-    var left = sent
-    return files.map { file ->
-        val done = minOf(left, file.sizeBytes)
-        left -= done
-        file.copy(transferredBytes = done)
     }
 }

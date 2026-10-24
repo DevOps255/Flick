@@ -280,7 +280,7 @@ async fn discoverability_off_then_on_rebuilds_the_endpoint_repeatedly() {
     }
 }
 
-/// `Everyone` <-> `PairedOnly` must not touch mDNS state at all  no rebuild,
+/// `Everyone` <-> `PairedOnly` must not touch mDNS state at all — no rebuild,
 /// no network-warming blip.
 #[tokio::test]
 async fn paired_only_transition_does_not_rebuild_the_network() {
@@ -345,7 +345,7 @@ async fn concurrent_discoverability_toggle_and_reconfigure_settle_consistently()
     .await;
 }
 
-/// Real multicast  opt-in, see `two_nodes_discover_each_other_over_mdns`.
+/// Real multicast — opt-in, see `two_nodes_discover_each_other_over_mdns`.
 ///
 /// A peer that goes `Off` must disappear from the *other* side's Nearby list,
 /// not just clear its own — aborting the consumer task alone left the

@@ -37,8 +37,8 @@ mod tests {
 
     #[test]
     fn keeps_plain_text() {
-        assert_eq!(single_line("Cute Tomato "), "Cute Tomato ");
-        assert_eq!(multi_line("Cute Tomato "), "Cute Tomato ");
+        assert_eq!(single_line("Cute Tomato 🍅"), "Cute Tomato 🍅");
+        assert_eq!(multi_line("Cute Tomato 🍅"), "Cute Tomato 🍅");
     }
 
     #[test]

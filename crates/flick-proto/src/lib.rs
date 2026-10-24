@@ -1,28 +1,32 @@
 //! Wire format of the ultrasonic announcement that starts a Flick session.
 //!
 //! A device broadcasts an [`Announcement`] as sound. A nearby device that
-//! decodes it learns where to connect (`port`) and which session to join.
-//! The audio carries no secret: authentication happens afterwards over TLS,
-//! where the peer certificate fingerprint must match `session_id`.
+//! decodes it learns where to connect and which certificate to expect.
+//! The sound carries no secret: the TLS handshake proves the sender holds the
+//! certificate whose fingerprint starts with `fingerprint_prefix`.
 //!
-//! The 12 byte size is chosen so one ggwave ultrasound frame carries it in
-//! about one second.
+//! Eight bytes of the fingerprint are sent, not four. Four bytes (32 bits) can
+//! be forged by trying certificates for a few seconds. Eight bytes (64 bits)
+//! cannot be forged in practice.
 
 use std::collections::HashMap;
+use std::net::Ipv4Addr;
 use std::time::{Duration, Instant};
 
 /// Size in bytes of an encoded [`Announcement`].
-pub const ANNOUNCEMENT_LEN: usize = 12;
+pub const ANNOUNCEMENT_LEN: usize = 18;
 
-/// What a device says out loud: who it is for this session and where to reach it.
+/// What a device says out loud: which certificate it holds and where to reach it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Announcement {
-    /// First 4 bytes of the SHA-256 of the sender's TLS certificate.
-    pub session_id: [u8; 4],
+    /// First 8 bytes of the SHA-256 of the sender's TLS certificate.
+    pub fingerprint_prefix: [u8; 8],
+    /// IPv4 address of the sender on the shared link (Wi-Fi, hotspot or Wi-Fi Direct).
+    pub ipv4: [u8; 4],
     /// TCP port of the sender's transfer server.
     pub port: u16,
     /// Random value, different on every broadcast. Used to reject replays.
-    pub nonce: [u8; 6],
+    pub nonce: [u8; 4],
 }
 
 /// Why a byte slice could not be decoded as an [`Announcement`].
@@ -33,12 +37,13 @@ pub enum DecodeError {
 }
 
 impl Announcement {
-    /// Serializes to `session_id | port (big endian) | nonce`.
+    /// Serializes to `fingerprint_prefix | ipv4 | port (big endian) | nonce`.
     pub fn encode(&self) -> [u8; ANNOUNCEMENT_LEN] {
         let mut out = [0u8; ANNOUNCEMENT_LEN];
-        out[..4].copy_from_slice(&self.session_id);
-        out[4..6].copy_from_slice(&self.port.to_be_bytes());
-        out[6..].copy_from_slice(&self.nonce);
+        out[..8].copy_from_slice(&self.fingerprint_prefix);
+        out[8..12].copy_from_slice(&self.ipv4);
+        out[12..14].copy_from_slice(&self.port.to_be_bytes());
+        out[14..].copy_from_slice(&self.nonce);
         out
     }
 
@@ -48,23 +53,34 @@ impl Announcement {
             return Err(DecodeError::WrongLength(bytes.len()));
         }
         Ok(Self {
-            session_id: bytes[..4].try_into().expect("length checked"),
-            port: u16::from_be_bytes([bytes[4], bytes[5]]),
-            nonce: bytes[6..].try_into().expect("length checked"),
+            fingerprint_prefix: bytes[..8].try_into().expect("length checked"),
+            ipv4: bytes[8..12].try_into().expect("length checked"),
+            port: u16::from_be_bytes([bytes[12], bytes[13]]),
+            nonce: bytes[14..].try_into().expect("length checked"),
         })
+    }
+
+    /// The address to connect to.
+    pub fn address(&self) -> (Ipv4Addr, u16) {
+        (Ipv4Addr::from(self.ipv4), self.port)
+    }
+
+    /// The prefix as uppercase hex, the form LocalSend uses to pin a certificate.
+    pub fn fingerprint_prefix_hex(&self) -> String {
+        self.fingerprint_prefix.iter().map(|b| format!("{b:02X}")).collect()
     }
 }
 
-/// Derives a `session_id` from a hex SHA-256 certificate fingerprint.
+/// Reads the first 8 bytes of a hex SHA-256 fingerprint.
 ///
-/// Returns `None` when the first 8 characters are not valid hex.
-pub fn session_id_from_fingerprint(fingerprint_hex: &str) -> Option<[u8; 4]> {
-    let head = fingerprint_hex.get(..8)?;
-    let mut id = [0u8; 4];
-    for (i, byte) in id.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&head[i * 2..i * 2 + 2], 16).ok()?;
+/// Returns `None` when the first 16 characters are not valid hex.
+pub fn fingerprint_prefix_from_hex(fingerprint_hex: &str) -> Option<[u8; 8]> {
+    let head = fingerprint_hex.get(..16)?;
+    let mut out = [0u8; 8];
+    for (i, byte) in out.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(head.get(i * 2..i * 2 + 2)?, 16).ok()?;
     }
-    Some(id)
+    Some(out)
 }
 
 /// Accepts each announcement once within a time window.
@@ -73,7 +89,7 @@ pub fn session_id_from_fingerprint(fingerprint_hex: &str) -> Option<[u8; 4]> {
 /// nonces makes the second playback fail.
 pub struct ReplayGuard {
     window: Duration,
-    seen: HashMap<[u8; 6], Instant>,
+    seen: HashMap<[u8; 4], Instant>,
 }
 
 impl ReplayGuard {
@@ -102,7 +118,12 @@ mod tests {
     use super::*;
 
     fn sample() -> Announcement {
-        Announcement { session_id: [1, 2, 3, 4], port: 53317, nonce: [9, 8, 7, 6, 5, 4] }
+        Announcement {
+            fingerprint_prefix: [1, 2, 3, 4, 5, 6, 7, 8],
+            ipv4: [192, 168, 49, 1],
+            port: 53317,
+            nonce: [9, 8, 7, 6],
+        }
     }
 
     #[test]
@@ -112,10 +133,21 @@ mod tests {
     }
 
     #[test]
-    fn session_id_comes_from_fingerprint_prefix() {
-        assert_eq!(session_id_from_fingerprint("0A1B2C3Dffff"), Some([0x0a, 0x1b, 0x2c, 0x3d]));
-        assert_eq!(session_id_from_fingerprint("zz"), None);
-        assert_eq!(session_id_from_fingerprint("0A1B2CZZ"), None);
+    fn exposes_address_and_hex_pin() {
+        let a = sample();
+        assert_eq!(a.address(), (Ipv4Addr::new(192, 168, 49, 1), 53317));
+        assert_eq!(a.fingerprint_prefix_hex(), "0102030405060708");
+    }
+
+    #[test]
+    fn prefix_comes_from_fingerprint() {
+        assert_eq!(
+            fingerprint_prefix_from_hex("0A1B2C3D4E5F6071FFFF"),
+            Some([0x0a, 0x1b, 0x2c, 0x3d, 0x4e, 0x5f, 0x60, 0x71])
+        );
+        assert_eq!(fingerprint_prefix_from_hex("zz"), None);
+        assert_eq!(fingerprint_prefix_from_hex("0A1B2C3D4E5F60ZZ"), None);
+        assert_eq!(fingerprint_prefix_from_hex("0A1B2C3D"), None);
     }
 
     #[test]

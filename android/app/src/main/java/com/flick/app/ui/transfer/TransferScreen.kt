@@ -33,9 +33,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -67,7 +71,12 @@ fun TransferScreen(onClose: () -> Unit, viewModel: TransferViewModel = hiltViewM
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
             Text("File transfer", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            Spacer(Modifier.width(48.dp))
+            val running = progress?.status == TransferStatus.Preparing || progress?.status == TransferStatus.InProgress
+            if (running) {
+                TextButton(onClick = { viewModel.cancel(); onClose() }) { Text("Cancel") }
+            } else {
+                Spacer(Modifier.width(48.dp))
+            }
         }
         when {
             state.error != null -> Text(
@@ -85,6 +94,11 @@ private fun ColumnScope.TransferBody(p: TransferProgress, onClose: () -> Unit) {
     val ringProgress by animateFloatAsState(p.progress, tween(250, easing = LinearEasing), label = "ring")
     val finished = p.files.count { it.progress >= 1f }
     val done = p.status == TransferStatus.Completed
+    val haptics = LocalHapticFeedback.current
+    val quarter = (p.progress * 4).toInt().coerceAtMost(3)
+    LaunchedEffect(quarter) { if (quarter > 0 && !done) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+    LaunchedEffect(done) { if (done) haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+    val secondsLeft = p.bytesPerSecond.takeIf { it > 0 && !done }?.let { (p.totalBytes - p.doneBytes) / it }
     val caption = when (p.status) {
         TransferStatus.Preparing -> "Connecting to"
         TransferStatus.InProgress -> "Sending file to"
@@ -108,6 +122,7 @@ private fun ColumnScope.TransferBody(p: TransferProgress, onClose: () -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     Text(caption, style = MaterialTheme.typography.labelMedium)
                     Text(p.peer.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    secondsLeft?.let { Text(if (it < 1) "almost done" else "about $it s left", style = MaterialTheme.typography.labelMedium) }
                 }
             }
         }
@@ -120,6 +135,12 @@ private fun ColumnScope.TransferBody(p: TransferProgress, onClose: () -> Unit) {
                 Stat("Size", formatBytes(p.totalBytes))
                 Stat("Speed", String.format(Locale.US, "%.1f MB/s", p.bytesPerSecond / 1e6))
             }
+        }
+        if (p.status == TransferStatus.Failed) {
+            item { Text(p.failure ?: "The transfer failed.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
+        }
+        if (p.status == TransferStatus.InProgress) {
+            item { Text("You can leave this screen. The transfer continues.", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp)) }
         }
         item { Text("File details", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)) }
         items(p.files, key = { it.uri }) { FileRow(it) }

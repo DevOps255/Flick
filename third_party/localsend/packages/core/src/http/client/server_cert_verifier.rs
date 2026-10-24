@@ -52,6 +52,9 @@ fn rejected(reason: String) -> Error {
 /// Running the check here instead of on the response is what makes it useful:
 /// the handshake fails before any request bytes are written, so a mismatching
 /// peer never receives the request metadata or the file content.
+/// Shortest accepted pin: 8 bytes written as hex.
+const MIN_PIN_HEX_LEN: usize = 16;
+
 pub(crate) struct PinnedServerCertVerifier {
     inner: Arc<dyn ServerCertVerifier>,
 
@@ -104,7 +107,10 @@ impl ServerCertVerifier for PinnedServerCertVerifier {
 
         if let Some(expected) = &self.expected_fingerprint {
             let actual = fingerprint_from_cert_der(end_entity.as_bytes());
-            if &actual != expected {
+            // Flick change: the expected value may be a prefix of the fingerprint,
+            // because the ultrasonic announcement only carries the first 8 bytes.
+            // A full length value still has to match exactly. Shorter pins are refused.
+            if expected.len() < MIN_PIN_HEX_LEN || !actual.starts_with(expected.as_str()) {
                 return Err(rejected(format!(
                     "server certificate fingerprint mismatch: expected {expected}, got {actual}"
                 )));

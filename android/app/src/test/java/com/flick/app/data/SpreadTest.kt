@@ -1,7 +1,7 @@
 package com.flick.app.data
 
 import com.flick.app.core.FileItem
-import com.flick.app.data.simulated.spread
+import com.flick.app.data.acoustic.spread
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

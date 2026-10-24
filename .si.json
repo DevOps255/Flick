@@ -2,21 +2,17 @@
   "plugin": "org.smartide.plugin.editor",
   "run": "echo 'change command from .si.json file'",
   "intelligence": {
-    ".kt": {
+    ".h": {
       "enabled": true,
-      "run": "kotlin-language-server"
+      "run": "clangd"
+    },
+    ".cpp": {
+      "enabled": true,
+      "run": "clangd"
     },
     ".rs": {
       "enabled": true,
       "run": "rust-analyzer"
-    },
-    ".md": {
-      "enabled": true,
-      "run": "marksman server"
-    },
-    ".toml": {
-      "enabled": true,
-      "run": "taplo lsp stdio"
     }
   }
 }

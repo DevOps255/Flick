@@ -1,1 +1,27 @@
-target/
+# Rust
+/target/
+**/target/
+
+# IntelliJ IDEA
+.idea/
+**/.idea/
+
+# Android / Gradle
+.gradle/
+**/.gradle/
+local.properties
+*.iml
+
+# Sauvegardes locales
+.gitignore.backup
+*.backup
+*.bak
+*.tmp
+
+# Fichiers générés
+*.o
+*.rcgu.o
+
+# Fichiers de configuration locaux
+.si.json
+

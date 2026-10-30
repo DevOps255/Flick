@@ -1,0 +1,8 @@
+/storage/emulated/0/Documents/flick/target/debug/deps/unicase-9dc4490903662a2c.d: /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/lib.rs /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/ascii.rs /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/unicode/mod.rs /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/unicode/map.rs
+
+/storage/emulated/0/Documents/flick/target/debug/deps/libunicase-9dc4490903662a2c.rmeta: /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/lib.rs /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/ascii.rs /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/unicode/mod.rs /data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/unicode/map.rs
+
+/data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/lib.rs:
+/data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/ascii.rs:
+/data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/unicode/mod.rs:
+/data/data/org.smartide.code/files/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicase-2.10.0/src/unicode/map.rs:

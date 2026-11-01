@@ -33,7 +33,7 @@ jobs:
       - name: AirDrop shader port gives the same result as the original
         run: python3 scripts/check_airdrop_port.py
       - name: No em dash or en dash
-        run: scripts/check-style.sh
+        run: bash scripts/check-style.sh
 
   bindings:
     name: Kotlin bindings match the Rust code
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
-      - run: scripts/check-bindings.sh
+      - run: bash scripts/check-bindings.sh
 
   android:
     name: Android, library, build and unit tests

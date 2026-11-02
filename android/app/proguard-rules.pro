@@ -1,0 +1,3 @@
+-keep class com.flick.app.data.db.** { *; }
+-keep class com.sun.jna.** { *; }
+-keep class uniffi.** { *; }

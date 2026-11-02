@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = ["crates/flick-proto", "crates/flick-gesture", "crates/flick-core", "crates/flick-ffi", "crates/flick-acoustic"]
+# Vendored projects keep their own workspaces and lockfiles.
+exclude = ["third_party"]
+
+[workspace.package]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+# Key generation and TLS are unusably slow unoptimized, which makes tests take minutes.
+[profile.dev.package."*"]
+opt-level = 3

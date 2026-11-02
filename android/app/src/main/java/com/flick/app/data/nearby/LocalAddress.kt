@@ -1,4 +1,4 @@
-package com.flick.app.data.acoustic
+package com.flick.app.data.nearby
 
 import java.net.Inet4Address
 import java.net.NetworkInterface

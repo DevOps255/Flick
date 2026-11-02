@@ -45,8 +45,9 @@ class ReceiveCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     nodes: NodeRepository,
     private val transferDao: TransferDao,
+    problems: Problems,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + problems.handler("Receiving"))
     private val _incoming = MutableStateFlow<IncomingTransfer?>(null)
     val incoming: StateFlow<IncomingTransfer?> = _incoming.asStateFlow()
 

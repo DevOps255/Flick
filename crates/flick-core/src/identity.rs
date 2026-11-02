@@ -17,14 +17,24 @@ impl Identity {
     /// Creates a new self-signed identity. Do this once and store it with [`Identity::to_pem`].
     pub fn generate() -> Result<Self> {
         let cert = generate_self_signed()?;
-        Ok(Self { cert_pem: cert.certificate_pem, key_pem: cert.private_key_pem, fingerprint: cert.fingerprint })
+        Ok(Self {
+            cert_pem: cert.certificate_pem,
+            key_pem: cert.private_key_pem,
+            fingerprint: cert.fingerprint,
+        })
     }
 
     /// Loads an identity saved with [`Identity::to_pem`].
     pub fn from_pem(text: &str) -> Result<Self> {
         let blocks = pem::parse_many(text)?;
-        let cert = blocks.iter().find(|b| b.tag() == "CERTIFICATE").context("missing CERTIFICATE block")?;
-        let key = blocks.iter().find(|b| b.tag().ends_with("PRIVATE KEY")).context("missing PRIVATE KEY block")?;
+        let cert = blocks
+            .iter()
+            .find(|b| b.tag() == "CERTIFICATE")
+            .context("missing CERTIFICATE block")?;
+        let key = blocks
+            .iter()
+            .find(|b| b.tag().ends_with("PRIVATE KEY"))
+            .context("missing PRIVATE KEY block")?;
         Ok(Self {
             fingerprint: fingerprint_from_cert_der(cert.contents()),
             cert_pem: pem::encode(cert),
@@ -39,6 +49,7 @@ impl Identity {
 
     /// The 8 byte prefix that goes into the announcement.
     pub fn prefix(&self) -> Result<[u8; 8]> {
-        fingerprint_prefix_from_hex(&self.fingerprint).ok_or_else(|| anyhow!("fingerprint is not hex"))
+        fingerprint_prefix_from_hex(&self.fingerprint)
+            .ok_or_else(|| anyhow!("fingerprint is not hex"))
     }
 }

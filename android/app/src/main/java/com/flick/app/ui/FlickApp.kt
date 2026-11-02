@@ -1,8 +1,6 @@
 package com.flick.app.ui
 
-import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -15,7 +13,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -38,9 +39,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import com.flick.app.ui.effects.LocalNameDrop
-import com.flick.app.ui.effects.NameDropHost
-import com.flick.app.ui.effects.NameDropWave
+import com.flick.app.ui.effects.AirDropEffect
+import com.flick.app.ui.effects.AirDropHost
+import com.flick.app.ui.effects.LocalAirDrop
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,24 +71,35 @@ private const val SLIDE_MS = 280
 @Composable
 fun FlickApp(appViewModel: AppViewModel = hiltViewModel()) {
     val incoming by appViewModel.incoming.collectAsStateWithLifecycle()
+    val problem by appViewModel.problem.collectAsStateWithLifecycle()
+    val selectedFiles by appViewModel.selectedFiles.collectAsStateWithLifecycle()
     val nav = rememberNavController()
-    val wave = remember { NameDropWave() }
+    val effect = remember { AirDropEffect() }
     val context = LocalContext.current
-    val permissions = remember {
-        // Nearby devices lets Android 13 and later form a Wi-Fi Direct group, older versions ask for location instead.
-        val wifiDirect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.NEARBY_WIFI_DEVICES else Manifest.permission.ACCESS_FINE_LOCATION
-        val notifications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) arrayOf(Manifest.permission.POST_NOTIFICATIONS) else emptyArray()
-        arrayOf(Manifest.permission.RECORD_AUDIO, wifiDirect) + notifications
-    }
+
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        appViewModel.setMicGranted(it[Manifest.permission.RECORD_AUDIO] == true)
+        appViewModel.setPermissionsGranted(Permissions.hasBluetooth(context))
     }
-    // Ultrasonic discovery starts with the app, so ask right away.
+    // Discovery starts with the app, so ask for everything right away.
     LaunchedEffect(Unit) {
-        val missing = permissions.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
-        appViewModel.setMicGranted(Manifest.permission.RECORD_AUDIO !in missing)
+        val missing = Permissions.all().filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+        appViewModel.setPermissionsGranted(Permissions.hasBluetooth(context))
         if (missing.isNotEmpty()) permissionLauncher.launch(missing.toTypedArray())
     }
+
+    // The effect plays when the link to the paired phone is really up, on both phones.
+    // The file stands out in the middle of the screen while the background blurs.
+    LaunchedEffect(Unit) {
+        appViewModel.associations.collect { peer ->
+            val files = appViewModel.selectedFiles.value
+            if (files.isEmpty()) {
+                effect.play(title = "Connected to ${peer.name}", subtitle = "Ready to receive")
+            } else {
+                effect.play(title = files.first().name + if (files.size > 1) " and ${files.size - 1} more" else "", subtitle = "Ready to send to ${peer.name}")
+            }
+        }
+    }
+
     val destination = nav.currentBackStackEntryAsState().value?.destination
     val onHome = destination?.hasRoute<HomeRoute>() == true
     val onNearby = destination?.hasRoute<NearbyRoute>() == true
@@ -99,48 +111,48 @@ fun FlickApp(appViewModel: AppViewModel = hiltViewModel()) {
         restoreState = true
     }
 
-    CompositionLocalProvider(LocalNameDrop provides wave) {
-        NameDropHost(wave, Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize()) {
-                Scaffold(
-                    contentWindowInsets = WindowInsets(0),
-                    containerColor = MaterialTheme.colorScheme.background,
-                    bottomBar = {
-                        AnimatedVisibility(visible = onHome || onNearby || onProfile, enter = fadeIn(Motion.enter(150)), exit = fadeOut(Motion.enter(120))) {
-                            BottomBar(
-                                onHome = onHome,
-                                onNearby = onNearby,
-                                onProfile = onProfile,
-                                onSelect = ::switchTab,
-                            )
-                        }
-                    },
-                ) { inner ->
-                    NavHost(
-                        navController = nav,
-                        startDestination = HomeRoute,
-                        modifier = Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()),
-                        enterTransition = { fadeIn(Motion.enter(150)) },
-                        exitTransition = { fadeOut(Motion.enter(100)) },
+    CompositionLocalProvider(LocalAirDrop provides effect) {
+        AirDropHost(
+            effect = effect,
+            modifier = Modifier.fillMaxSize(),
+            // Drawn above the effect, so these are never blurred or stretched.
+            foreground = {
+                incoming?.let { ReceiveOverlay(it, onDone = appViewModel::dismissIncoming) }
+                problem?.let { ProblemBanner(it, onDismiss = appViewModel::dismissProblem, modifier = Modifier.align(Alignment.TopCenter)) }
+            },
+        ) {
+            Scaffold(
+                contentWindowInsets = WindowInsets(0),
+                containerColor = MaterialTheme.colorScheme.background,
+                bottomBar = {
+                    AnimatedVisibility(visible = onHome || onNearby || onProfile, enter = fadeIn(Motion.enter(150)), exit = fadeOut(Motion.enter(120))) {
+                        BottomBar(onHome = onHome, onNearby = onNearby, onProfile = onProfile, onSelect = ::switchTab)
+                    }
+                },
+            ) { inner ->
+                NavHost(
+                    navController = nav,
+                    startDestination = HomeRoute,
+                    modifier = Modifier.fillMaxSize().padding(bottom = inner.calculateBottomPadding()),
+                    enterTransition = { fadeIn(Motion.enter(150)) },
+                    exitTransition = { fadeOut(Motion.enter(100)) },
+                ) {
+                    composable<HomeRoute> {
+                        HomeScreen(
+                            onSend = { switchTab(NearbyRoute) },
+                            onReceive = { switchTab(NearbyRoute) },
+                        )
+                    }
+                    composable<NearbyRoute> { NearbyScreen(onOpenTransfer = { ids -> nav.navigate(TransferRoute(ids.joinToString(","))) }) }
+                    composable<ProfileRoute> { ProfileScreen() }
+                    // Enters from the right and leaves to the right, so back feels like the reverse of forward.
+                    composable<TransferRoute>(
+                        enterTransition = { slideInHorizontally(tween(SLIDE_MS, easing = Motion.EaseOut)) { it } },
+                        popExitTransition = { slideOutHorizontally(tween(SLIDE_MS, easing = Motion.EaseOut)) { it } },
                     ) {
-                        composable<HomeRoute> {
-                            HomeScreen(
-                                onSend = { switchTab(NearbyRoute) },
-                                onReceive = { switchTab(NearbyRoute) },
-                            )
-                        }
-                        composable<NearbyRoute> { NearbyScreen(onOpenTransfer = { nav.navigate(TransferRoute(it)) }) }
-                        composable<ProfileRoute> { ProfileScreen() }
-                        // Enters from the right and leaves to the right, so back feels like the reverse of forward.
-                        composable<TransferRoute>(
-                            enterTransition = { slideInHorizontally(tween(SLIDE_MS, easing = Motion.EaseOut)) { it } },
-                            popExitTransition = { slideOutHorizontally(tween(SLIDE_MS, easing = Motion.EaseOut)) { it } },
-                        ) {
-                            TransferScreen(onClose = { nav.popBackStack() })
-                        }
+                        TransferScreen(onClose = { nav.popBackStack() })
                     }
                 }
-                incoming?.let { ReceiveOverlay(it, onDone = appViewModel::dismissIncoming) }
             }
         }
     }
@@ -179,5 +191,25 @@ private fun BarItem(label: String, icon: ImageVector, selected: Boolean, onClick
             Spacer(Modifier.width(8.dp))
             Text(label, color = Color.White, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+
+/** Shows a failure on screen so it can be read, photographed and reported instead of closing the app. */
+@Composable
+private fun ProblemBanner(text: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .statusBarsPadding()
+            .padding(12.dp)
+            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Flick hit a problem", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onErrorContainer)
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+        }
+        TextButton(onClick = onDismiss) { Text("Close") }
     }
 }

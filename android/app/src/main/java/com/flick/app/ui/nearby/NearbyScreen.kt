@@ -1,7 +1,9 @@
 package com.flick.app.ui.nearby
 
-import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +46,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,9 +76,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.flick.app.core.Peer
+import com.flick.app.ui.Permissions
 import com.flick.app.ui.components.Avatar
 import com.flick.app.ui.components.FlickButton
-import com.flick.app.ui.effects.LocalNameDrop
+import com.flick.app.ui.effects.LocalAirDrop
 import com.flick.app.ui.theme.Indigo
 import com.flick.app.ui.theme.Motion
 import com.flick.app.ui.theme.Teal
@@ -93,7 +97,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
  */
 @Composable
 fun NearbyScreen(
-    onOpenTransfer: (peerId: String) -> Unit,
+    onOpenTransfer: (peerIds: List<String>) -> Unit,
     viewModel: NearbyViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -104,9 +108,11 @@ fun NearbyScreen(
     val latest = rememberUpdatedState(state)
     val latestChosen = rememberUpdatedState(chosenId)
 
-    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { viewModel.setMicGranted(it) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        viewModel.setPermissionsGranted(Permissions.hasBluetooth(context))
+    }
     LaunchedEffect(Unit) {
-        viewModel.setMicGranted(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+        viewModel.setPermissionsGranted(Permissions.hasBluetooth(context))
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
         if (uris.isNotEmpty()) viewModel.onFilesPicked(uris)
@@ -129,25 +135,43 @@ fun NearbyScreen(
     }
 
     val target = state.target(chosenId)
+    val targets = state.targets(chosenId)
+    val effect = LocalAirDrop.current
 
-    // File picked and the other phone ready: the wave confirms both phones are in sync.
-    val wave = LocalNameDrop.current
-    val inSync = state.files.isNotEmpty() && target != null
-    LaunchedEffect(inSync) {
-        if (inSync) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            wave.play()
-        }
-    }
+    // The phone the user paired with becomes the one the file goes to.
+    LaunchedEffect(Unit) { viewModel.associations.collect { chosenId = it.id } }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("flick nearby", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             Switch(checked = state.enabled, onCheckedChange = viewModel::setEnabled)
         }
+        if (state.enabled && state.permissionsGranted && !state.bluetoothOn) {
+            RadioOffBanner("Bluetooth is off", "Flick needs it to find the other phone.") { context.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
+        }
+        if (state.enabled && state.permissionsGranted && !state.wifiOn) {
+            RadioOffBanner("Wi-Fi is off", "Flick needs it to connect the phones. Android lets only you turn it on.") { context.startActivity(Intent(Settings.Panel.ACTION_WIFI)) }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Share with several phones", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    if (state.multiple) "Every ready phone receives, and any phone nearby may send to you" else "Only the closest phone receives",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+            Switch(checked = state.multiple, onCheckedChange = viewModel::setMultiple)
+        }
+        var showDiagnostics by remember { mutableStateOf(false) }
+        TextButton(onClick = { showDiagnostics = !showDiagnostics }, Modifier.padding(horizontal = 12.dp)) {
+            Text(if (showDiagnostics) "Hide diagnostics" else "Diagnostics")
+        }
+        if (showDiagnostics) {
+            DiagnosticsCard(viewModel.diagnostics, Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp))
+        }
         Radar(
             peers = state.peers,
-            active = state.enabled && state.micGranted,
+            active = state.enabled && state.permissionsGranted,
             targetId = target?.id,
             onPeerClick = { peer ->
                 chosenId = peer.id
@@ -163,7 +187,7 @@ fun NearbyScreen(
                 .padding(top = 24.dp, bottom = 16.dp),
         ) {
             when {
-                !state.micGranted -> MicrophoneNeeded { micLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+                !state.permissionsGranted -> BluetoothNeeded { permissionLauncher.launch(Permissions.all()) }
                 else -> NearbyList(state.peers, state.enabled, onAddFriend = viewModel::addFriend, onPeerClick = {
                     chosenId = it.id
                     if (state.files.isEmpty()) picker.launch(arrayOf("*/*")) else throwRequests.tryEmit(Unit)
@@ -172,10 +196,11 @@ fun NearbyScreen(
             Spacer(Modifier.weight(1f))
             FileTray(
                 files = state.files,
-                canSend = target != null,
+                canSend = targets.isNotEmpty(),
+                sendHint = if (state.multiple) "Swipe up to send to ${targets.size} phone${if (targets.size == 1) "" else "s"}" else "Swipe up, or flick your phone",
                 throwRequests = throwRequests,
-                onThrowStart = { wave.play() },
-                onThrow = { latest.value.target(latestChosen.value)?.let { onOpenTransfer(it.id) } },
+                onThrowStart = { effect.play(title = state.files.firstOrNull()?.name.orEmpty(), subtitle = "Sending to ${targets.firstOrNull()?.name ?: "the other phone"}") },
+                onThrow = { latest.value.targets(latestChosen.value).takeIf { it.isNotEmpty() }?.let { found -> onOpenTransfer(found.map { it.id }) } },
                 onPickFiles = { picker.launch(arrayOf("*/*")) },
             )
         }
@@ -183,15 +208,34 @@ fun NearbyScreen(
 }
 
 @Composable
-private fun MicrophoneNeeded(onAllow: () -> Unit) {
+private fun RadioOffBanner(title: String, detail: String, onTurnOn: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 8.dp)
+            .background(Indigo.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(detail, style = MaterialTheme.typography.labelMedium)
+        }
+        FlickButton("Turn on", Icons.Filled.Check, onTurnOn, Indigo)
+    }
+}
+
+@Composable
+private fun BluetoothNeeded(onAllow: () -> Unit) {
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Flick finds nearby phones by sound", style = MaterialTheme.typography.titleMedium)
+        Text("Flick finds nearby phones with Bluetooth", style = MaterialTheme.typography.titleMedium)
         Text(
-            "It uses the microphone and speaker for a short inaudible signal. Nothing is recorded or stored.",
+            "It only looks for other phones running Flick. Nothing is sent to anyone, and it stops when you leave the app.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        FlickButton("Allow microphone", Icons.Filled.Check, onAllow, Indigo, Modifier.fillMaxWidth())
+        FlickButton("Allow", Icons.Filled.Check, onAllow, Indigo, Modifier.fillMaxWidth())
     }
 }
 

@@ -30,11 +30,10 @@ extern "C" {
 
 // Writes the waveform of `payload` into `out` and returns the number of samples.
 // Returns the needed size when `out` is null, and -1 on failure.
-int32_t fa_encode(const uint8_t* payload, int32_t len, float* out, int32_t cap, int32_t protocol_id) {
+int32_t fa_encode(const uint8_t* payload, int32_t len, float* out, int32_t cap, int32_t protocol_id, int32_t volume) {
     ggwave_Instance g = ggwave_init(make_parameters());
     if (g < 0) return -1;
     const auto protocol = static_cast<ggwave_ProtocolId>(protocol_id);
-    const int volume = 25;
     int bytes = ggwave_encode(g, payload, len, protocol, volume, nullptr, 1);
     int samples = bytes / static_cast<int>(sizeof(float));
     if (bytes <= 0) {

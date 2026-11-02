@@ -20,7 +20,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class TransferUiState(
-    val progress: TransferProgress? = null,
+    /** One entry per recipient. */
+    val progress: List<TransferProgress> = emptyList(),
     val error: String? = null,
 )
 
@@ -36,7 +37,7 @@ class TransferViewModel @Inject constructor(
     selection: SendSelection,
 ) : ViewModel() {
 
-    private val peerId = savedStateHandle.toRoute<TransferRoute>().peerId
+    private val peerIds = savedStateHandle.toRoute<TransferRoute>().peerIds.split(",").filter { it.isNotBlank() }
     private val error = MutableStateFlow<String?>(null)
 
     val state: StateFlow<TransferUiState> = combine(manager.state, error) { progress, message ->
@@ -46,12 +47,13 @@ class TransferViewModel @Inject constructor(
     init {
         manager.reset()
         viewModelScope.launch {
-            val peer = discovery.peers.first().firstOrNull { it.id == peerId }
+            val nearby = discovery.peers.first()
+            val peers = peerIds.mapNotNull { id -> nearby.firstOrNull { it.id == id } }
             val files = selection.files.value
             when {
-                peer == null -> error.value = "This device is no longer nearby."
+                peers.isEmpty() -> error.value = "This device is no longer nearby."
                 files.isEmpty() -> error.value = "No file selected."
-                else -> manager.start(peer, files)
+                else -> manager.start(peers, files)
             }
         }
     }

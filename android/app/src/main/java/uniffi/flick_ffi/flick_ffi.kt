@@ -803,6 +803,36 @@ internal open class UniffiVTableCallbackInterfaceSendObserver(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -846,8 +876,24 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_flick_ffi_fn_method_flicknode_send(`ptr`: Pointer,`to`: RustBuffer.ByValue,`files`: RustBuffer.ByValue,`observer`: Pointer,
     ): Long
+    fun uniffi_flick_ffi_fn_method_flicknode_set_trusted(`ptr`: Pointer,`announcements`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_flick_ffi_fn_method_flicknode_trust(`ptr`: Pointer,`announcement`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_flick_ffi_fn_clone_pairingengine(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_flick_ffi_fn_free_pairingengine(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_flick_ffi_fn_constructor_pairingengine_new(uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_flick_ffi_fn_method_pairingengine_on_frame(`ptr`: Pointer,`frame`: RustBuffer.ByValue,`rssiDbm`: Int,`nowMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_flick_ffi_fn_method_pairingengine_on_own_gesture(`ptr`: Pointer,`nowMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_flick_ffi_fn_method_pairingengine_phones(`ptr`: Pointer,`nowMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_flick_ffi_fn_method_pairingengine_poll(`ptr`: Pointer,`nowMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_flick_ffi_fn_clone_receiveobserver(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
     fun uniffi_flick_ffi_fn_free_receiveobserver(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
@@ -870,10 +916,28 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_flick_ffi_fn_constructor_soundlistener_new(uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
+    fun uniffi_flick_ffi_fn_method_soundlistener_channel_busy(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
     fun uniffi_flick_ffi_fn_method_soundlistener_push(`ptr`: Pointer,`samples`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_flick_ffi_fn_func_announcement_to_sound(`announcement`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_flick_ffi_fn_clone_tiltdetector(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_flick_ffi_fn_free_tiltdetector(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_flick_ffi_fn_constructor_tiltdetector_new(uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_flick_ffi_fn_method_tiltdetector_push(`ptr`: Pointer,`tMs`: Long,`x`: Float,`y`: Float,`z`: Float,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_flick_ffi_fn_func_announcement_to_sound(`announcement`: RustBuffer.ByValue,`slow`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_flick_ffi_fn_func_ble_frame_decode(`bytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_flick_ffi_fn_func_ble_frame_encode(`frame`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_flick_ffi_fn_func_ble_magic(uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
+    fun uniffi_flick_ffi_fn_func_ble_manufacturer_id(uniffi_out_err: UniffiRustCallStatus, 
+    ): Short
     fun uniffi_flick_ffi_fn_func_generate_identity(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_flick_ffi_fn_func_plan_link(`ownFingerprintPrefix`: RustBuffer.ByValue,`ownLinks`: RustBuffer.ByValue,`peer`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -996,6 +1060,14 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_flick_ffi_checksum_func_announcement_to_sound(
     ): Short
+    fun uniffi_flick_ffi_checksum_func_ble_frame_decode(
+    ): Short
+    fun uniffi_flick_ffi_checksum_func_ble_frame_encode(
+    ): Short
+    fun uniffi_flick_ffi_checksum_func_ble_magic(
+    ): Short
+    fun uniffi_flick_ffi_checksum_func_ble_manufacturer_id(
+    ): Short
     fun uniffi_flick_ffi_checksum_func_generate_identity(
     ): Short
     fun uniffi_flick_ffi_checksum_func_plan_link(
@@ -1016,17 +1088,35 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_flick_ffi_checksum_method_flicknode_send(
     ): Short
+    fun uniffi_flick_ffi_checksum_method_flicknode_set_trusted(
+    ): Short
     fun uniffi_flick_ffi_checksum_method_flicknode_trust(
+    ): Short
+    fun uniffi_flick_ffi_checksum_method_pairingengine_on_frame(
+    ): Short
+    fun uniffi_flick_ffi_checksum_method_pairingengine_on_own_gesture(
+    ): Short
+    fun uniffi_flick_ffi_checksum_method_pairingengine_phones(
+    ): Short
+    fun uniffi_flick_ffi_checksum_method_pairingengine_poll(
     ): Short
     fun uniffi_flick_ffi_checksum_method_receiveobserver_on_event(
     ): Short
     fun uniffi_flick_ffi_checksum_method_sendobserver_on_progress(
     ): Short
+    fun uniffi_flick_ffi_checksum_method_soundlistener_channel_busy(
+    ): Short
     fun uniffi_flick_ffi_checksum_method_soundlistener_push(
+    ): Short
+    fun uniffi_flick_ffi_checksum_method_tiltdetector_push(
     ): Short
     fun uniffi_flick_ffi_checksum_constructor_flickdetector_new(
     ): Short
+    fun uniffi_flick_ffi_checksum_constructor_pairingengine_new(
+    ): Short
     fun uniffi_flick_ffi_checksum_constructor_soundlistener_new(
+    ): Short
+    fun uniffi_flick_ffi_checksum_constructor_tiltdetector_new(
     ): Short
     fun ffi_flick_ffi_uniffi_contract_version(
     ): Int
@@ -1045,7 +1135,19 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
-    if (lib.uniffi_flick_ffi_checksum_func_announcement_to_sound() != 58035.toShort()) {
+    if (lib.uniffi_flick_ffi_checksum_func_announcement_to_sound() != 15703.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_func_ble_frame_decode() != 40001.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_func_ble_frame_encode() != 52314.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_func_ble_magic() != 38520.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_func_ble_manufacturer_id() != 18490.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_flick_ffi_checksum_func_generate_identity() != 25781.toShort()) {
@@ -1066,7 +1168,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_announcement() != 23244.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_flick_ffi_checksum_method_flicknode_cancel_send() != 30441.toShort()) {
+    if (lib.uniffi_flick_ffi_checksum_method_flicknode_cancel_send() != 64656.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_describe() != 10176.toShort()) {
@@ -1078,7 +1180,22 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_send() != 42394.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_flick_ffi_checksum_method_flicknode_set_trusted() != 3390.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_trust() != 43751.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_method_pairingengine_on_frame() != 45358.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_method_pairingengine_on_own_gesture() != 38144.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_method_pairingengine_phones() != 19907.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_method_pairingengine_poll() != 19392.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_flick_ffi_checksum_method_receiveobserver_on_event() != 61797.toShort()) {
@@ -1087,13 +1204,25 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_flick_ffi_checksum_method_sendobserver_on_progress() != 38313.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_flick_ffi_checksum_method_soundlistener_channel_busy() != 59772.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_flick_ffi_checksum_method_soundlistener_push() != 31556.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_method_tiltdetector_push() != 15758.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_flick_ffi_checksum_constructor_flickdetector_new() != 37759.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_flick_ffi_checksum_constructor_pairingengine_new() != 11769.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_flick_ffi_checksum_constructor_soundlistener_new() != 27372.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_constructor_tiltdetector_new() != 48328.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1249,6 +1378,29 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 
     override fun write(value: UInt, buf: ByteBuffer) {
         buf.putInt(value.toInt())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterInt: FfiConverter<Int, Int> {
+    override fun lift(value: Int): Int {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Int {
+        return buf.getInt()
+    }
+
+    override fun lower(value: Int): Int {
+        return value
+    }
+
+    override fun allocationSize(value: Int) = 4UL
+
+    override fun write(value: Int, buf: ByteBuffer) {
+        buf.putInt(value)
     }
 }
 
@@ -1824,7 +1976,7 @@ public interface FlickNodeInterface {
     fun `announcement`(`ipv4`: kotlin.ByteArray, `nonce`: kotlin.ByteArray): AnnouncementData
     
     /**
-     * Stops the send in progress, if any.
+     * Stops every send in progress.
      */
     fun `cancelSend`()
     
@@ -1839,6 +1991,11 @@ public interface FlickNodeInterface {
      * Sends files to the device behind a heard announcement. Returns when all arrived.
      */
     suspend fun `send`(`to`: AnnouncementData, `files`: List<OutgoingFileData>, `observer`: SendObserver)
+    
+    /**
+     * Replaces the list of phones allowed to send here. An empty list refuses everybody.
+     */
+    fun `setTrusted`(`announcements`: List<AnnouncementData>)
     
     /**
      * Allows the device behind a heard announcement to send here for the next minute.
@@ -1950,7 +2107,7 @@ open class FlickNode: Disposable, AutoCloseable, FlickNodeInterface {
 
     
     /**
-     * Stops the send in progress, if any.
+     * Stops every send in progress.
      */override fun `cancelSend`()
         = 
     callWithPointer {
@@ -2025,6 +2182,21 @@ open class FlickNode: Disposable, AutoCloseable, FlickNodeInterface {
 
     
     /**
+     * Replaces the list of phones allowed to send here. An empty list refuses everybody.
+     */
+    @Throws(FlickException::class)override fun `setTrusted`(`announcements`: List<AnnouncementData>)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(FlickException) { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_flicknode_set_trusted(
+        it, FfiConverterSequenceTypeAnnouncementData.lower(`announcements`),_status)
+}
+    }
+    
+    
+
+    
+    /**
      * Allows the device behind a heard announcement to send here for the next minute.
      */
     @Throws(FlickException::class)override fun `trust`(`announcement`: AnnouncementData)
@@ -2068,6 +2240,319 @@ public object FfiConverterTypeFlickNode: FfiConverter<FlickNode, Pointer> {
     override fun allocationSize(value: FlickNode) = 8UL
 
     override fun write(value: FlickNode, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// to the live Rust struct on the other side of the FFI.
+//
+// Each instance implements core operations for working with the Rust `Arc<T>` and the
+// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque pointer to the underlying Rust struct.
+//     Method calls need to read this pointer from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its pointer should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
+//      before it can pass the pointer over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+/**
+ * Follows the phones heard over Bluetooth and decides which one the user paired with.
+ */
+public interface PairingEngineInterface {
+    
+    /**
+     * Records a frame heard at `now_ms` (any steady clock, in milliseconds) with its signal strength.
+     */
+    fun `onFrame`(`frame`: BleFrameData, `rssiDbm`: kotlin.Int, `nowMs`: kotlin.ULong)
+    
+    /**
+     * The user made the pairing gesture on this phone.
+     */
+    fun `onOwnGesture`(`nowMs`: kotlin.ULong)
+    
+    /**
+     * The phones heard in the last seconds, closest first.
+     */
+    fun `phones`(`nowMs`: kotlin.ULong): List<NearbyPhone>
+    
+    /**
+     * Call it often. A pairing is reported once.
+     */
+    fun `poll`(`nowMs`: kotlin.ULong): PairingResult
+    
+    companion object
+}
+
+/**
+ * Follows the phones heard over Bluetooth and decides which one the user paired with.
+ */
+open class PairingEngine: Disposable, AutoCloseable, PairingEngineInterface {
+
+    constructor(pointer: Pointer) {
+        this.pointer = pointer
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    }
+
+    /**
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noPointer: NoPointer) {
+        this.pointer = null
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    }
+    constructor() :
+        this(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_constructor_pairingengine_new(
+        _status)
+}
+    )
+
+    protected val pointer: Pointer?
+    protected val cleanable: UniffiCleaner.Cleanable
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the pointer being freed concurrently.
+        try {
+            return block(this.uniffiClonePointer())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+        override fun run() {
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_free_pairingengine(ptr, status)
+                }
+            }
+        }
+    }
+
+    fun uniffiClonePointer(): Pointer {
+        return uniffiRustCall() { status ->
+            UniffiLib.INSTANCE.uniffi_flick_ffi_fn_clone_pairingengine(pointer!!, status)
+        }
+    }
+
+    
+    /**
+     * Records a frame heard at `now_ms` (any steady clock, in milliseconds) with its signal strength.
+     */
+    @Throws(FlickException::class)override fun `onFrame`(`frame`: BleFrameData, `rssiDbm`: kotlin.Int, `nowMs`: kotlin.ULong)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(FlickException) { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_pairingengine_on_frame(
+        it, FfiConverterTypeBleFrameData.lower(`frame`),FfiConverterInt.lower(`rssiDbm`),FfiConverterULong.lower(`nowMs`),_status)
+}
+    }
+    
+    
+
+    
+    /**
+     * The user made the pairing gesture on this phone.
+     */override fun `onOwnGesture`(`nowMs`: kotlin.ULong)
+        = 
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_pairingengine_on_own_gesture(
+        it, FfiConverterULong.lower(`nowMs`),_status)
+}
+    }
+    
+    
+
+    
+    /**
+     * The phones heard in the last seconds, closest first.
+     */override fun `phones`(`nowMs`: kotlin.ULong): List<NearbyPhone> {
+            return FfiConverterSequenceTypeNearbyPhone.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_pairingengine_phones(
+        it, FfiConverterULong.lower(`nowMs`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Call it often. A pairing is reported once.
+     */override fun `poll`(`nowMs`: kotlin.ULong): PairingResult {
+            return FfiConverterTypePairingResult.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_pairingengine_poll(
+        it, FfiConverterULong.lower(`nowMs`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+    
+    companion object
+    
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePairingEngine: FfiConverter<PairingEngine, Pointer> {
+
+    override fun lower(value: PairingEngine): Pointer {
+        return value.uniffiClonePointer()
+    }
+
+    override fun lift(value: Pointer): PairingEngine {
+        return PairingEngine(value)
+    }
+
+    override fun read(buf: ByteBuffer): PairingEngine {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
+    }
+
+    override fun allocationSize(value: PairingEngine) = 8UL
+
+    override fun write(value: PairingEngine, buf: ByteBuffer) {
         // The Rust code always expects pointers written as 8 bytes,
         // and will fail to compile if they don't fit.
         buf.putLong(Pointer.nativeValue(lower(value)))
@@ -2761,6 +3246,12 @@ public object FfiConverterTypeSendObserver: FfiConverter<SendObserver, Pointer> 
 public interface SoundListenerInterface {
     
     /**
+     * True while another phone is sending sound. Wait for false before playing an announcement,
+     * so two phones do not talk over each other.
+     */
+    fun `channelBusy`(): kotlin.Boolean
+    
+    /**
      * Feeds mono f32 samples at [`sound_sample_rate`]. Returns an announcement when one just completed.
      * Garbled messages and replays return nothing.
      */
@@ -2862,6 +3353,22 @@ open class SoundListener: Disposable, AutoCloseable, SoundListenerInterface {
 
     
     /**
+     * True while another phone is sending sound. Wait for false before playing an announcement,
+     * so two phones do not talk over each other.
+     */override fun `channelBusy`(): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_soundlistener_channel_busy(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Feeds mono f32 samples at [`sound_sample_rate`]. Returns an announcement when one just completed.
      * Garbled messages and replays return nothing.
      */override fun `push`(`samples`: List<kotlin.Float>): AnnouncementData? {
@@ -2913,6 +3420,260 @@ public object FfiConverterTypeSoundListener: FfiConverter<SoundListener, Pointer
 }
 
 
+// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
+// to the live Rust struct on the other side of the FFI.
+//
+// Each instance implements core operations for working with the Rust `Arc<T>` and the
+// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque pointer to the underlying Rust struct.
+//     Method calls need to read this pointer from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its pointer should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the pointer, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
+//      before it can pass the pointer over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+/**
+ * Feed gyroscope readings in, get tilts out. One instance per sensor.
+ */
+public interface TiltDetectorInterface {
+    
+    /**
+     * Pushes one gyroscope reading in rad/s. Returns a tilt when one just finished.
+     */
+    fun `push`(`tMs`: kotlin.ULong, `x`: kotlin.Float, `y`: kotlin.Float, `z`: kotlin.Float): TiltEvent?
+    
+    companion object
+}
+
+/**
+ * Feed gyroscope readings in, get tilts out. One instance per sensor.
+ */
+open class TiltDetector: Disposable, AutoCloseable, TiltDetectorInterface {
+
+    constructor(pointer: Pointer) {
+        this.pointer = pointer
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    }
+
+    /**
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noPointer: NoPointer) {
+        this.pointer = null
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
+    }
+    constructor() :
+        this(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_constructor_tiltdetector_new(
+        _status)
+}
+    )
+
+    protected val pointer: Pointer?
+    protected val cleanable: UniffiCleaner.Cleanable
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the pointer being freed concurrently.
+        try {
+            return block(this.uniffiClonePointer())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
+        override fun run() {
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_free_tiltdetector(ptr, status)
+                }
+            }
+        }
+    }
+
+    fun uniffiClonePointer(): Pointer {
+        return uniffiRustCall() { status ->
+            UniffiLib.INSTANCE.uniffi_flick_ffi_fn_clone_tiltdetector(pointer!!, status)
+        }
+    }
+
+    
+    /**
+     * Pushes one gyroscope reading in rad/s. Returns a tilt when one just finished.
+     */override fun `push`(`tMs`: kotlin.ULong, `x`: kotlin.Float, `y`: kotlin.Float, `z`: kotlin.Float): TiltEvent? {
+            return FfiConverterOptionalTypeTiltEvent.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_tiltdetector_push(
+        it, FfiConverterULong.lower(`tMs`),FfiConverterFloat.lower(`x`),FfiConverterFloat.lower(`y`),FfiConverterFloat.lower(`z`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+    
+    companion object
+    
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeTiltDetector: FfiConverter<TiltDetector, Pointer> {
+
+    override fun lower(value: TiltDetector): Pointer {
+        return value.uniffiClonePointer()
+    }
+
+    override fun lift(value: Pointer): TiltDetector {
+        return TiltDetector(value)
+    }
+
+    override fun read(buf: ByteBuffer): TiltDetector {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
+    }
+
+    override fun allocationSize(value: TiltDetector) = 8UL
+
+    override fun write(value: TiltDetector, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
 
 /**
  * The ultrasonic announcement, in a form UniFFI can pass to Kotlin.
@@ -2952,6 +3713,45 @@ public object FfiConverterTypeAnnouncementData: FfiConverterRustBuffer<Announcem
             FfiConverterByteArray.write(value.`ipv4`, buf)
             FfiConverterUShort.write(value.`port`, buf)
             FfiConverterByteArray.write(value.`nonce`, buf)
+    }
+}
+
+
+
+/**
+ * What a phone advertises over Bluetooth.
+ */
+data class BleFrameData (
+    var `announcement`: AnnouncementData, 
+    var `gesture`: kotlin.Boolean, 
+    var `gestureSeq`: kotlin.UByte
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeBleFrameData: FfiConverterRustBuffer<BleFrameData> {
+    override fun read(buf: ByteBuffer): BleFrameData {
+        return BleFrameData(
+            FfiConverterTypeAnnouncementData.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterUByte.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: BleFrameData) = (
+            FfiConverterTypeAnnouncementData.allocationSize(value.`announcement`) +
+            FfiConverterBoolean.allocationSize(value.`gesture`) +
+            FfiConverterUByte.allocationSize(value.`gestureSeq`)
+    )
+
+    override fun write(value: BleFrameData, buf: ByteBuffer) {
+            FfiConverterTypeAnnouncementData.write(value.`announcement`, buf)
+            FfiConverterBoolean.write(value.`gesture`, buf)
+            FfiConverterUByte.write(value.`gestureSeq`, buf)
     }
 }
 
@@ -3040,10 +3840,63 @@ public object FfiConverterTypeLocalLinkData: FfiConverterRustBuffer<LocalLinkDat
 
 
 /**
- * A file to send. `path` may be `/proc/self/fd/N`, so name and size come separately.
+ * A phone heard over Bluetooth.
+ */
+data class NearbyPhone (
+    var `id`: kotlin.String, 
+    var `announcement`: AnnouncementData, 
+    var `rssiDbm`: kotlin.Float, 
+    var `distanceM`: kotlin.Float, 
+    /**
+     * 1 when touching, 0 at two metres or more.
+     */
+    var `proximity`: kotlin.Float
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeNearbyPhone: FfiConverterRustBuffer<NearbyPhone> {
+    override fun read(buf: ByteBuffer): NearbyPhone {
+        return NearbyPhone(
+            FfiConverterString.read(buf),
+            FfiConverterTypeAnnouncementData.read(buf),
+            FfiConverterFloat.read(buf),
+            FfiConverterFloat.read(buf),
+            FfiConverterFloat.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: NearbyPhone) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterTypeAnnouncementData.allocationSize(value.`announcement`) +
+            FfiConverterFloat.allocationSize(value.`rssiDbm`) +
+            FfiConverterFloat.allocationSize(value.`distanceM`) +
+            FfiConverterFloat.allocationSize(value.`proximity`)
+    )
+
+    override fun write(value: NearbyPhone, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterTypeAnnouncementData.write(value.`announcement`, buf)
+            FfiConverterFloat.write(value.`rssiDbm`, buf)
+            FfiConverterFloat.write(value.`distanceM`, buf)
+            FfiConverterFloat.write(value.`proximity`, buf)
+    }
+}
+
+
+
+/**
+ * A file to send, given as an open file descriptor.
+ *
+ * On Android a picked file can only be read through the descriptor the system hands out.
+ * Detach it in Kotlin with `ParcelFileDescriptor.detachFd()`: Rust takes ownership and closes it.
  */
 data class OutgoingFileData (
-    var `path`: kotlin.String, 
+    var `fd`: kotlin.Int, 
     var `name`: kotlin.String, 
     var `size`: kotlin.ULong
 ) {
@@ -3057,22 +3910,61 @@ data class OutgoingFileData (
 public object FfiConverterTypeOutgoingFileData: FfiConverterRustBuffer<OutgoingFileData> {
     override fun read(buf: ByteBuffer): OutgoingFileData {
         return OutgoingFileData(
-            FfiConverterString.read(buf),
+            FfiConverterInt.read(buf),
             FfiConverterString.read(buf),
             FfiConverterULong.read(buf),
         )
     }
 
     override fun allocationSize(value: OutgoingFileData) = (
-            FfiConverterString.allocationSize(value.`path`) +
+            FfiConverterInt.allocationSize(value.`fd`) +
             FfiConverterString.allocationSize(value.`name`) +
             FfiConverterULong.allocationSize(value.`size`)
     )
 
     override fun write(value: OutgoingFileData, buf: ByteBuffer) {
-            FfiConverterString.write(value.`path`, buf)
+            FfiConverterInt.write(value.`fd`, buf)
             FfiConverterString.write(value.`name`, buf)
             FfiConverterULong.write(value.`size`, buf)
+    }
+}
+
+
+
+/**
+ * A deliberate tilt of the phone.
+ */
+data class TiltEvent (
+    var `tMs`: kotlin.ULong, 
+    var `angle`: kotlin.Float, 
+    var `axis`: kotlin.UInt
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeTiltEvent: FfiConverterRustBuffer<TiltEvent> {
+    override fun read(buf: ByteBuffer): TiltEvent {
+        return TiltEvent(
+            FfiConverterULong.read(buf),
+            FfiConverterFloat.read(buf),
+            FfiConverterUInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: TiltEvent) = (
+            FfiConverterULong.allocationSize(value.`tMs`) +
+            FfiConverterFloat.allocationSize(value.`angle`) +
+            FfiConverterUInt.allocationSize(value.`axis`)
+    )
+
+    override fun write(value: TiltEvent, buf: ByteBuffer) {
+            FfiConverterULong.write(value.`tMs`, buf)
+            FfiConverterFloat.write(value.`angle`, buf)
+            FfiConverterUInt.write(value.`axis`, buf)
     }
 }
 
@@ -3101,10 +3993,10 @@ sealed class FlickException: kotlin.Exception() {
     
     class Failed(
         
-        val `message`: kotlin.String
+        val `reason`: kotlin.String
         ) : FlickException() {
         override val message
-            get() = "message=${ `message` }"
+            get() = "reason=${ `reason` }"
     }
     
 
@@ -3148,7 +4040,7 @@ public object FfiConverterTypeFlickError : FfiConverterRustBuffer<FlickException
             is FlickException.Failed -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`reason`)
             )
         }
     }
@@ -3166,7 +4058,7 @@ public object FfiConverterTypeFlickError : FfiConverterRustBuffer<FlickException
             }
             is FlickException.Failed -> {
                 buf.putInt(3)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`reason`, buf)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
@@ -3270,6 +4162,93 @@ public object FfiConverterTypeLinkPlanData : FfiConverterRustBuffer<LinkPlanData
                 buf.putInt(3)
                 FfiConverterString.write(value.`ssid`, buf)
                 FfiConverterString.write(value.`passphrase`, buf)
+                Unit
+            }
+        }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
+    }
+}
+
+
+
+
+
+/**
+ * Whether the user paired with a phone.
+ */
+sealed class PairingResult {
+    
+    /**
+     * No gesture here, or the other phone has not made one yet.
+     */
+    object Pending : PairingResult()
+    
+    
+    /**
+     * Several phones are about as close. Nothing is paired.
+     */
+    object Ambiguous : PairingResult()
+    
+    
+    data class Paired(
+        val `phone`: NearbyPhone) : PairingResult() {
+        companion object
+    }
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePairingResult : FfiConverterRustBuffer<PairingResult>{
+    override fun read(buf: ByteBuffer): PairingResult {
+        return when(buf.getInt()) {
+            1 -> PairingResult.Pending
+            2 -> PairingResult.Ambiguous
+            3 -> PairingResult.Paired(
+                FfiConverterTypeNearbyPhone.read(buf),
+                )
+            else -> throw RuntimeException("invalid enum value, something is very wrong!!")
+        }
+    }
+
+    override fun allocationSize(value: PairingResult) = when(value) {
+        is PairingResult.Pending -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is PairingResult.Ambiguous -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
+        is PairingResult.Paired -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+                + FfiConverterTypeNearbyPhone.allocationSize(value.`phone`)
+            )
+        }
+    }
+
+    override fun write(value: PairingResult, buf: ByteBuffer) {
+        when(value) {
+            is PairingResult.Pending -> {
+                buf.putInt(1)
+                Unit
+            }
+            is PairingResult.Ambiguous -> {
+                buf.putInt(2)
+                Unit
+            }
+            is PairingResult.Paired -> {
+                buf.putInt(3)
+                FfiConverterTypeNearbyPhone.write(value.`phone`, buf)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
@@ -3477,6 +4456,38 @@ public object FfiConverterOptionalTypeAnnouncementData: FfiConverterRustBuffer<A
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeBleFrameData: FfiConverterRustBuffer<BleFrameData?> {
+    override fun read(buf: ByteBuffer): BleFrameData? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeBleFrameData.read(buf)
+    }
+
+    override fun allocationSize(value: BleFrameData?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeBleFrameData.allocationSize(value)
+        }
+    }
+
+    override fun write(value: BleFrameData?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeBleFrameData.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeFlickEvent: FfiConverterRustBuffer<FlickEvent?> {
     override fun read(buf: ByteBuffer): FlickEvent? {
         if (buf.get().toInt() == 0) {
@@ -3499,6 +4510,38 @@ public object FfiConverterOptionalTypeFlickEvent: FfiConverterRustBuffer<FlickEv
         } else {
             buf.put(1)
             FfiConverterTypeFlickEvent.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeTiltEvent: FfiConverterRustBuffer<TiltEvent?> {
+    override fun read(buf: ByteBuffer): TiltEvent? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeTiltEvent.read(buf)
+    }
+
+    override fun allocationSize(value: TiltEvent?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeTiltEvent.allocationSize(value)
+        }
+    }
+
+    override fun write(value: TiltEvent?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeTiltEvent.write(value, buf)
         }
     }
 }
@@ -3565,6 +4608,34 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeAnnouncementData: FfiConverterRustBuffer<List<AnnouncementData>> {
+    override fun read(buf: ByteBuffer): List<AnnouncementData> {
+        val len = buf.getInt()
+        return List<AnnouncementData>(len) {
+            FfiConverterTypeAnnouncementData.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<AnnouncementData>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeAnnouncementData.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<AnnouncementData>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeAnnouncementData.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeLocalLinkData: FfiConverterRustBuffer<List<LocalLinkData>> {
     override fun read(buf: ByteBuffer): List<LocalLinkData> {
         val len = buf.getInt()
@@ -3583,6 +4654,34 @@ public object FfiConverterSequenceTypeLocalLinkData: FfiConverterRustBuffer<List
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeLocalLinkData.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeNearbyPhone: FfiConverterRustBuffer<List<NearbyPhone>> {
+    override fun read(buf: ByteBuffer): List<NearbyPhone> {
+        val len = buf.getInt()
+        return List<NearbyPhone>(len) {
+            FfiConverterTypeNearbyPhone.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<NearbyPhone>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeNearbyPhone.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<NearbyPhone>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeNearbyPhone.write(it, buf)
         }
     }
 }
@@ -3624,12 +4723,64 @@ public object FfiConverterSequenceTypeOutgoingFileData: FfiConverterRustBuffer<L
 
         /**
          * Turns an announcement into mono f32 samples, ready to play.
+         *
+         * `slow` picks the slower mode, 2.4 s instead of 1.8 s, which a weak microphone decodes more easily.
+         * The receiver decodes both, so a phone can alternate them.
          */
-    @Throws(FlickException::class) fun `announcementToSound`(`announcement`: AnnouncementData): List<kotlin.Float> {
+    @Throws(FlickException::class) fun `announcementToSound`(`announcement`: AnnouncementData, `slow`: kotlin.Boolean): List<kotlin.Float> {
             return FfiConverterSequenceFloat.lift(
     uniffiRustCallWithError(FlickException) { _status ->
     UniffiLib.INSTANCE.uniffi_flick_ffi_fn_func_announcement_to_sound(
-        FfiConverterTypeAnnouncementData.lower(`announcement`),_status)
+        FfiConverterTypeAnnouncementData.lower(`announcement`),FfiConverterBoolean.lower(`slow`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Reads manufacturer data from a scan. Returns nothing for data that is not a Flick frame.
+         */ fun `bleFrameDecode`(`bytes`: kotlin.ByteArray): BleFrameData? {
+            return FfiConverterOptionalTypeBleFrameData.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_func_ble_frame_decode(
+        FfiConverterByteArray.lower(`bytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Serializes a frame for the advertisement.
+         */
+    @Throws(FlickException::class) fun `bleFrameEncode`(`frame`: BleFrameData): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    uniffiRustCallWithError(FlickException) { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_func_ble_frame_encode(
+        FfiConverterTypeBleFrameData.lower(`frame`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * First byte of every frame. Use it to filter scan results.
+         */ fun `bleMagic`(): kotlin.UByte {
+            return FfiConverterUByte.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_func_ble_magic(
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * Manufacturer id to put the frame under in the advertisement and to filter scans on.
+         */ fun `bleManufacturerId`(): kotlin.UShort {
+            return FfiConverterUShort.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_func_ble_manufacturer_id(
+        _status)
 }
     )
     }

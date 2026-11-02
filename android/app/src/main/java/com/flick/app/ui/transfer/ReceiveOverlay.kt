@@ -56,7 +56,7 @@ import androidx.core.content.FileProvider
 import com.flick.app.data.IncomingTransfer
 import com.flick.app.ui.components.FlickButton
 import com.flick.app.ui.components.formatBytes
-import com.flick.app.ui.effects.LocalNameDrop
+import com.flick.app.ui.effects.LocalAirDrop
 import com.flick.app.ui.theme.Indigo
 import com.flick.app.ui.theme.Motion
 import com.flick.app.ui.theme.Teal
@@ -84,8 +84,10 @@ fun ReceiveOverlay(incoming: IncomingTransfer, onDone: () -> Unit) {
     val progress by animateFloatAsState(incoming.progress, tween(250, easing = LinearEasing), label = "fill")
     val enter by animateFloatAsState(1f, Motion.settle(), label = "enter")
     val done = incoming.finished && incoming.ok
-    val wave = LocalNameDrop.current
-    LaunchedEffect(incoming.sessionId) { wave.play() }
+    val effect = LocalAirDrop.current
+    LaunchedEffect(incoming.sessionId) {
+        effect.play(title = incoming.fileNames.firstOrNull().orEmpty(), subtitle = "from ${incoming.sender}")
+    }
 
     // One light tick per quarter, and a firmer one when the file is complete.
     val quarter = (incoming.progress * 4).toInt().coerceAtMost(3)

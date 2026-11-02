@@ -5,8 +5,8 @@ import androidx.room.Room
 import com.flick.app.core.PeerDiscovery
 import com.flick.app.core.TransferEngine
 import com.flick.app.data.db.FlickDatabase
-import com.flick.app.data.acoustic.AcousticDiscovery
-import com.flick.app.data.acoustic.RealTransferEngine
+import com.flick.app.data.nearby.NearbyDiscovery
+import com.flick.app.data.nearby.RealTransferEngine
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -19,7 +19,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class EngineModule {
     @Binds
-    abstract fun discovery(impl: AcousticDiscovery): PeerDiscovery
+    abstract fun discovery(impl: NearbyDiscovery): PeerDiscovery
 
     @Binds
     abstract fun engine(impl: RealTransferEngine): TransferEngine

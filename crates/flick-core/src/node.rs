@@ -17,9 +17,10 @@ use localsend::http::server::web::WebConfig;
 use localsend::http::server::{start_with_port, ServerConfigV2, ServerHandle};
 use localsend::http::state::ClientInfo;
 use localsend::model::discovery::{DeviceType, ProtocolType, PROTOCOL_VERSION_V2};
-use localsend::model::transfer::{FileContent, FileDto};
+use localsend::model::transfer::FileDto;
 use localsend::reqwest;
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -33,9 +34,18 @@ const TRUST_WINDOW: Duration = Duration::from_secs(60);
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
     /// A trusted device offered files. Receiving starts without further input.
-    IncomingStarted { session_id: String, sender: String, file_names: Vec<String>, total_bytes: u64 },
+    IncomingStarted {
+        session_id: String,
+        sender: String,
+        file_names: Vec<String>,
+        total_bytes: u64,
+    },
     /// Cumulative bytes moved in this session, sent or received.
-    Progress { session_id: String, done_bytes: u64, total_bytes: u64 },
+    Progress {
+        session_id: String,
+        done_bytes: u64,
+        total_bytes: u64,
+    },
     /// One file is complete on disk.
     FileReceived { session_id: String, path: PathBuf },
     /// The session is over. `ok` is false if anything failed or was cancelled.
@@ -58,15 +68,55 @@ pub struct Target {
     pub fingerprint_prefix: String,
 }
 
-/// A file to send. `path` can be any readable path, for example `/proc/self/fd/N`
-/// on Android, so the real `name` and `size` are passed separately.
+/// Where the bytes of a file to send come from.
+#[derive(Clone, Debug)]
+pub enum Source {
+    /// A path this process may open.
+    Path(PathBuf),
+    /// A file already open. On Android a picked file is only reachable this way: opening it again by
+    /// its path, even through `/proc/self/fd`, is checked again and fails with "permission denied".
+    Open(Arc<File>),
+}
+
+/// A file to send.
 #[derive(Clone, Debug)]
 pub struct OutgoingFile {
-    pub path: PathBuf,
+    pub source: Source,
     pub name: String,
     pub size: u64,
     /// SHA-256 as hex. The receiver checks the bytes against it. When `None` it is computed before sending.
     pub sha256: Option<String>,
+}
+
+impl OutgoingFile {
+    pub fn from_path(path: impl Into<PathBuf>, name: impl Into<String>, size: u64) -> Self {
+        Self {
+            source: Source::Path(path.into()),
+            name: name.into(),
+            size,
+            sha256: None,
+        }
+    }
+
+    pub fn from_file(file: File, name: impl Into<String>, size: u64) -> Self {
+        Self {
+            source: Source::Open(Arc::new(file)),
+            name: name.into(),
+            size,
+            sha256: None,
+        }
+    }
+
+    fn open(&self) -> Result<Arc<File>> {
+        match &self.source {
+            Source::Open(file) => Ok(file.clone()),
+            Source::Path(path) => {
+                Ok(Arc::new(File::open(path).with_context(|| {
+                    format!("cannot open {}", path.display())
+                })?))
+            }
+        }
+    }
 }
 
 struct Session {
@@ -120,7 +170,11 @@ impl Node {
             }),
             info,
             None,
-            Some(ServerConfigV2 { pin: None, verify_checksums: true, event_tx }),
+            Some(ServerConfigV2 {
+                pin: None,
+                verify_checksums: true,
+                event_tx,
+            }),
             WebConfig::default(),
             stop_rx,
         )
@@ -130,7 +184,14 @@ impl Node {
         let trusted: Arc<Mutex<HashMap<String, Instant>>> = Arc::default();
         tokio::spawn(receive_loop(event_rx, trusted.clone(), inbox, observer));
 
-        Ok(Self { identity, alias, port: bound, trusted, _server: server, stop_tx: Some(stop_tx) })
+        Ok(Self {
+            identity,
+            alias,
+            port: bound,
+            trusted,
+            _server: server,
+            stop_tx: Some(stop_tx),
+        })
     }
 
     pub fn port(&self) -> u16 {
@@ -144,7 +205,21 @@ impl Node {
     /// Lets the device whose certificate starts with `fingerprint_prefix` upload
     /// for the next minute. Call it when its announcement is heard.
     pub fn trust(&self, fingerprint_prefix: &str) {
-        self.trusted.lock().unwrap().insert(fingerprint_prefix.to_ascii_uppercase(), Instant::now());
+        self.trusted
+            .lock()
+            .unwrap()
+            .insert(fingerprint_prefix.to_ascii_uppercase(), Instant::now());
+    }
+
+    /// Replaces the whole list of senders allowed to upload. An empty list refuses everybody.
+    ///
+    /// Use it to accept only the closest phone, or all of them when the user chose to share with several.
+    pub fn set_trusted(&self, fingerprint_prefixes: &[String]) {
+        let mut map = self.trusted.lock().unwrap();
+        map.clear();
+        for prefix in fingerprint_prefixes {
+            map.insert(prefix.to_ascii_uppercase(), Instant::now());
+        }
     }
 
     /// Sends files to `target` and returns when all of them arrived.
@@ -165,7 +240,9 @@ impl Node {
             let id = i.to_string();
             let sha256 = match &file.sha256 {
                 Some(known) => known.clone(),
-                None => hash_file(&file.path).await.with_context(|| format!("cannot read {}", file.name))?,
+                None => hash_file(file.open()?, file.size)
+                    .await
+                    .with_context(|| format!("cannot read {}", file.name))?,
             };
             files.insert(
                 id.clone(),
@@ -179,7 +256,7 @@ impl Node {
                     metadata: None,
                 },
             );
-            sources.insert(id, file.path.clone());
+            sources.insert(id, file.open()?);
         }
         let total: u64 = files.values().map(|f| f.size).sum();
 
@@ -195,16 +272,23 @@ impl Node {
                 &target.host,
                 target.port,
                 None,
-                PrepareUploadRequestDtoV2 { info: self.register_dto(), files: files.clone() },
+                PrepareUploadRequestDtoV2 {
+                    info: self.register_dto(),
+                    files: files.clone(),
+                },
                 None,
                 cancel.clone(),
             )
             .await
             .map_err(|e| match e {
-                ClientError::StatusCode(s) if s.status == 403 => anyhow!("the other device declined"),
+                ClientError::StatusCode(s) if s.status == 403 => {
+                    anyhow!("the other device declined")
+                }
                 other => anyhow!("could not reach the other device: {other}"),
             })?;
-        let response = prepared.response.context("the other device accepted no file")?;
+        let response = prepared
+            .response
+            .context("the other device accepted no file")?;
 
         let on_progress = Arc::new(on_progress);
         let mut ids: Vec<&String> = response.files.keys().collect();
@@ -212,12 +296,17 @@ impl Node {
         let mut sent_before = 0u64;
         for id in ids {
             let token = &response.files[id];
-            let file = files.get(id).context("unexpected file id in the response")?;
-            let path = sources.get(id).context("unexpected file id in the response")?.clone();
+            let file = files
+                .get(id)
+                .context("unexpected file id in the response")?;
+            let source = sources
+                .get(id)
+                .context("unexpected file id in the response")?
+                .clone();
             let base = sent_before;
             let report = on_progress.clone();
             let mut sent = 0u64;
-            let stream = FileContent::Path(path).into_stream().map(move |chunk| {
+            let stream = file_stream(source, file.size).map(move |chunk| {
                 let chunk = chunk?;
                 sent += chunk.len() as u64;
                 report(base + sent, total);
@@ -280,25 +369,78 @@ impl Drop for Node {
     }
 }
 
-/// SHA-256 of a file as hex, read in 1 MiB steps so large files never sit in memory.
-async fn hash_file(path: &Path) -> Result<String> {
+/// Bytes read from a file at once. Large enough to be fast, small enough for steady progress.
+const CHUNK: usize = 256 * 1024;
+
+/// Reads `buf.len()` bytes at `offset` without moving the file position, so the same open file can
+/// be hashed and then sent, or sent to several phones at once.
+fn read_at(file: &File, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::FileExt::read_at(file, buf, offset)
+    }
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::FileExt::seek_read(file, buf, offset)
+    }
+}
+
+/// SHA-256 of the first `size` bytes of a file, as hex.
+async fn hash_file(file: Arc<File>, size: u64) -> Result<String> {
     use sha2::{Digest, Sha256};
-    use std::io::Read;
-    let path = path.to_path_buf();
     tokio::task::spawn_blocking(move || -> Result<String> {
-        let mut file = std::fs::File::open(path)?;
         let mut hasher = Sha256::new();
         let mut buffer = vec![0u8; 1 << 20];
-        loop {
-            let n = file.read(&mut buffer)?;
+        let mut offset = 0u64;
+        while offset < size {
+            let want = buffer.len().min((size - offset) as usize);
+            let n = read_at(&file, &mut buffer[..want], offset)?;
             if n == 0 {
-                break;
+                bail!("the file is shorter than announced");
             }
             hasher.update(&buffer[..n]);
+            offset += n as u64;
         }
-        Ok(hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect())
+        Ok(hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect())
     })
     .await?
+}
+
+/// The bytes of a file as a stream, read in [`CHUNK`] sized steps.
+fn file_stream(
+    file: Arc<File>,
+    size: u64,
+) -> impl futures_util::Stream<Item = Result<bytes::Bytes>> {
+    futures_util::stream::unfold((file, 0u64), move |(file, offset)| async move {
+        if offset >= size {
+            return None;
+        }
+        let want = CHUNK.min((size - offset) as usize);
+        let reader = file.clone();
+        let read = tokio::task::spawn_blocking(move || {
+            let mut buf = vec![0u8; want];
+            let n = read_at(&reader, &mut buf, offset)?;
+            buf.truncate(n);
+            Ok::<_, std::io::Error>(buf)
+        })
+        .await;
+        match read {
+            Ok(Ok(buf)) if !buf.is_empty() => {
+                let next = offset + buf.len() as u64;
+                Some((Ok(bytes::Bytes::from(buf)), (file, next)))
+            }
+            Ok(Ok(_)) => Some((
+                Err(anyhow!("the file is shorter than announced")),
+                (file, size),
+            )),
+            Ok(Err(e)) => Some((Err(e.into()), (file, size))),
+            Err(e) => Some((Err(e.into()), (file, size))),
+        }
+    })
 }
 
 /// Handles everything the server reports. Runs until the server stops.
@@ -311,8 +453,17 @@ async fn receive_loop(
     let sessions: Sessions = Arc::default();
     while let Some(event) = events.recv().await {
         match event {
-            ServerEventV2::PrepareUpload { session_id, info, cert_fingerprint, files, decision_tx, .. } => {
-                let allowed = cert_fingerprint.as_deref().is_some_and(|fp| take_trust(&trusted, fp));
+            ServerEventV2::PrepareUpload {
+                session_id,
+                info,
+                cert_fingerprint,
+                files,
+                decision_tx,
+                ..
+            } => {
+                let allowed = cert_fingerprint
+                    .as_deref()
+                    .is_some_and(|fp| take_trust(&trusted, fp));
                 if !allowed {
                     let _ = decision_tx.send(PrepareUploadDecisionV2::Decline);
                     observer.on_event(Event::Declined { sender: info.alias });
@@ -340,19 +491,30 @@ async fn receive_loop(
                     total_bytes: total,
                 });
             }
-            ServerEventV2::FileUpload { session_id, file, target_tx, .. } => {
+            ServerEventV2::FileUpload {
+                session_id,
+                file,
+                target_tx,
+                ..
+            } => {
                 let path = unique_path(&inbox, &file.file_name);
                 let (progress_tx, mut progress_rx) = mpsc::channel::<u64>(16);
                 let (result_tx, result_rx) = oneshot::channel::<Result<(), String>>();
                 if target_tx
-                    .send(FileUploadTarget::Path { path: path.clone(), result_tx, progress_tx: Some(progress_tx) })
+                    .send(FileUploadTarget::Path {
+                        path: path.clone(),
+                        result_tx,
+                        progress_tx: Some(progress_tx),
+                    })
                     .is_err()
                 {
                     continue;
                 }
                 let (base, total) = {
                     let map = sessions.lock().unwrap();
-                    map.get(&session_id).map(|s| (s.finished_bytes, s.total_bytes)).unwrap_or((0, 0))
+                    map.get(&session_id)
+                        .map(|s| (s.finished_bytes, s.total_bytes))
+                        .unwrap_or((0, 0))
                 };
                 let progress_observer = observer.clone();
                 let progress_session = session_id.clone();
@@ -388,10 +550,17 @@ async fn receive_loop(
                     if ok {
                         observer.on_event(Event::Progress {
                             session_id: session_id.clone(),
-                            done_bytes: sessions.lock().unwrap().get(&session_id).map_or(0, |s| s.finished_bytes),
+                            done_bytes: sessions
+                                .lock()
+                                .unwrap()
+                                .get(&session_id)
+                                .map_or(0, |s| s.finished_bytes),
                             total_bytes: total,
                         });
-                        observer.on_event(Event::FileReceived { session_id: session_id.clone(), path });
+                        observer.on_event(Event::FileReceived {
+                            session_id: session_id.clone(),
+                            path,
+                        });
                     }
                     finish_if_done(&sessions, &session_id, observer.as_ref());
                 });
@@ -418,7 +587,10 @@ fn finish_if_done(sessions: &Sessions, session_id: &str, observer: &dyn Observer
         let _ = &s.sender;
         map.remove(session_id);
         drop(map);
-        observer.on_event(Event::Finished { session_id: session_id.to_string(), ok });
+        observer.on_event(Event::Finished {
+            session_id: session_id.to_string(),
+            ok,
+        });
     }
 }
 
@@ -427,7 +599,10 @@ fn take_trust(trusted: &Mutex<HashMap<String, Instant>>, fingerprint: &str) -> b
     let fingerprint = fingerprint.to_ascii_uppercase();
     let mut map = trusted.lock().unwrap();
     map.retain(|_, heard| heard.elapsed() < TRUST_WINDOW);
-    let hit = map.keys().find(|prefix| fingerprint.starts_with(prefix.as_str())).cloned();
+    let hit = map
+        .keys()
+        .find(|prefix| fingerprint.starts_with(prefix.as_str()))
+        .cloned();
     match hit {
         Some(prefix) => {
             // Kept until it expires: one session may upload several files.
@@ -441,7 +616,11 @@ fn take_trust(trusted: &Mutex<HashMap<String, Instant>>, fingerprint: &str) -> b
 /// A path inside `dir` for `name` that does not overwrite anything.
 /// Only the last component of `name` is used, so a sender cannot write outside `dir`.
 fn unique_path(dir: &Path, name: &str) -> PathBuf {
-    let clean = Path::new(name).file_name().and_then(|n| n.to_str()).filter(|n| !n.is_empty()).unwrap_or("file");
+    let clean = Path::new(name)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|n| !n.is_empty())
+        .unwrap_or("file");
     let first = dir.join(clean);
     if !first.exists() {
         return first;
@@ -479,7 +658,10 @@ mod unit {
     fn existing_names_get_a_number() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("a.txt"), b"x").unwrap();
-        assert_eq!(unique_path(dir.path(), "a.txt"), dir.path().join("a (1).txt"));
+        assert_eq!(
+            unique_path(dir.path(), "a.txt"),
+            dir.path().join("a (1).txt")
+        );
     }
 
     #[test]

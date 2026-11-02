@@ -11,7 +11,8 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.flick.app.core.TransferStatus
+import com.flick.app.core.TransferProgress
+import com.flick.app.data.isRunning
 import com.flick.app.data.IncomingTransfer
 import com.flick.app.data.ReceiveCoordinator
 import com.flick.app.data.TransferManager
@@ -54,7 +55,7 @@ class TransferService : Service() {
         startForeground(NOTIFICATION_ID, notification("Flick", null), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         watcher?.cancel()
         watcher = scope.launch {
-            combine(sending.state, receiving.incoming) { out, incoming -> describe(out?.status, out?.peer?.name, out?.progress, incoming) }
+            combine(sending.state, receiving.incoming) { sends, incoming -> describe(sends, incoming) }
                 .collectLatest { line ->
                     if (line == null) {
                         // Wait a moment: a new transfer may start right after the last one.
@@ -74,11 +75,17 @@ class TransferService : Service() {
     }
 
     /** Title and progress (0 to 1) of what is moving, or null when nothing is. */
-    private fun describe(status: TransferStatus?, peer: String?, progress: Float?, incoming: IncomingTransfer?): Pair<String, Float?>? = when {
-        status == TransferStatus.Preparing -> "Connecting to $peer" to null
-        status == TransferStatus.InProgress -> "Sending to $peer" to progress
-        incoming != null && !incoming.finished -> "Receiving from ${incoming.sender}" to incoming.progress
-        else -> null
+    private fun describe(sends: List<TransferProgress>, incoming: IncomingTransfer?): Pair<String, Float?>? {
+        val running = sends.filter { it.isRunning() }
+        return when {
+            running.isNotEmpty() -> {
+                val who = if (sends.size == 1) sends.first().peer.name else "${sends.size} phones"
+                val moving = running.any { it.bytesPerSecond > 0 || it.doneBytes > 0 }
+                if (moving) "Sending to $who" to sends.map { it.progress }.average().toFloat() else "Connecting to $who" to null
+            }
+            incoming != null && !incoming.finished -> "Receiving from ${incoming.sender}" to incoming.progress
+            else -> null
+        }
     }
 
     private fun notification(title: String, progress: Float?): Notification {

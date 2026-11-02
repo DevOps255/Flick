@@ -10,17 +10,31 @@ pub mod link;
 mod node;
 
 pub use identity::Identity;
-pub use node::{check_prefix, Event, Node, Observer, OutgoingFile, Target};
+pub use node::{check_prefix, Event, Node, Observer, OutgoingFile, Source, Target};
 
 use flick_proto::Announcement;
 
 /// Builds the announcement a device plays: who it is and where to reach it.
-pub fn announcement_for(identity: &Identity, ipv4: [u8; 4], port: u16, nonce: [u8; 4]) -> Option<Announcement> {
-    Some(Announcement { fingerprint_prefix: identity.prefix().ok()?, ipv4, port, nonce })
+pub fn announcement_for(
+    identity: &Identity,
+    ipv4: [u8; 4],
+    port: u16,
+    nonce: [u8; 4],
+) -> Option<Announcement> {
+    Some(Announcement {
+        fingerprint_prefix: identity.prefix().ok()?,
+        ipv4,
+        port,
+        nonce,
+    })
 }
 
 /// Turns a heard announcement into the target to send to.
 pub fn target_from(announcement: &Announcement) -> Target {
     let (ip, port) = announcement.address();
-    Target { host: ip.to_string(), port, fingerprint_prefix: announcement.fingerprint_prefix_hex() }
+    Target {
+        host: ip.to_string(),
+        port,
+        fingerprint_prefix: announcement.fingerprint_prefix_hex(),
+    }
 }

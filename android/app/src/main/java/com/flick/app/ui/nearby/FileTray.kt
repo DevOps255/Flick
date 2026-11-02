@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 fun FileTray(
     files: List<FileItem>,
     canSend: Boolean,
+    sendHint: String,
     throwRequests: Flow<Unit>,
     onThrowStart: () -> Unit,
     onThrow: () -> Unit,
@@ -107,7 +108,7 @@ fun FileTray(
 
     Column(modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            if (canSend) "Swipe up, or flick your phone" else "Hold the phones closer together",
+            if (canSend) sendHint else "Hold the phones closer together",
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(bottom = 10.dp),
         )

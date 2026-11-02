@@ -65,13 +65,14 @@ import java.util.Locale
 @Composable
 fun TransferScreen(onClose: () -> Unit, viewModel: TransferViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val progress = state.progress
+    val recipients = state.progress
+    val progress = recipients.takeIf { it.isNotEmpty() }?.combined()
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
             Text("File transfer", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            val running = progress?.status == TransferStatus.Preparing || progress?.status == TransferStatus.InProgress
+            val running = recipients.any { it.status == TransferStatus.Preparing || it.status == TransferStatus.InProgress }
             if (running) {
                 TextButton(onClick = { viewModel.cancel(); onClose() }) { Text("Cancel") }
             } else {
@@ -84,13 +85,13 @@ fun TransferScreen(onClose: () -> Unit, viewModel: TransferViewModel = hiltViewM
                 modifier = Modifier.padding(24.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            progress != null -> TransferBody(progress, onClose)
+            progress != null -> TransferBody(progress, recipients, onClose)
         }
     }
 }
 
 @Composable
-private fun ColumnScope.TransferBody(p: TransferProgress, onClose: () -> Unit) {
+private fun ColumnScope.TransferBody(p: TransferProgress, recipients: List<TransferProgress>, onClose: () -> Unit) {
     val ringProgress by animateFloatAsState(p.progress, tween(250, easing = LinearEasing), label = "ring")
     val finished = p.files.count { it.progress >= 1f }
     val done = p.status == TransferStatus.Completed
@@ -142,6 +143,10 @@ private fun ColumnScope.TransferBody(p: TransferProgress, onClose: () -> Unit) {
         if (p.status == TransferStatus.InProgress) {
             item { Text("You can leave this screen. The transfer continues.", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp)) }
         }
+        if (recipients.size > 1) {
+            item { Text("Recipients", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)) }
+            items(recipients, key = { it.peer.id }) { RecipientRow(it) }
+        }
         item { Text("File details", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)) }
         items(p.files, key = { it.uri }) { FileRow(it) }
     }
@@ -188,5 +193,48 @@ private fun FileRow(file: FileItem) {
             Text("${formatBytes(file.transferredBytes)} / ${formatBytes(file.sizeBytes)}", style = MaterialTheme.typography.labelMedium)
         }
         CircularProgressIndicator(progress = { file.progress }, modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = Indigo)
+    }
+}
+
+
+/**
+ * One transfer standing for all recipients, for the ring at the top.
+ * With several recipients the progress is the average, the speed is the sum,
+ * and the status is the most advanced one that is still running.
+ */
+private fun List<TransferProgress>.combined(): TransferProgress {
+    if (size == 1) return first()
+    val status = when {
+        all { it.status == TransferStatus.Completed } -> TransferStatus.Completed
+        any { it.status == TransferStatus.InProgress } -> TransferStatus.InProgress
+        any { it.status == TransferStatus.Preparing } -> TransferStatus.Preparing
+        else -> TransferStatus.Failed
+    }
+    val files = first().files.mapIndexed { i, file -> file.copy(transferredBytes = sumOf { it.files[i].transferredBytes } / size) }
+    return TransferProgress(
+        peer = first().peer.copy(name = "$size phones"),
+        files = files,
+        bytesPerSecond = sumOf { it.bytesPerSecond },
+        status = status,
+        failure = firstNotNullOfOrNull { it.failure },
+    )
+}
+
+@Composable
+private fun RecipientRow(p: TransferProgress) {
+    val state = when (p.status) {
+        TransferStatus.Preparing -> "Connecting"
+        TransferStatus.InProgress -> "${(p.progress * 100).toInt()}%"
+        TransferStatus.Completed -> "Sent"
+        TransferStatus.Failed -> p.failure ?: "Failed"
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 10.dp).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Avatar(p.peer.name, size = 36.dp)
+        Spacer(Modifier.width(12.dp))
+        Text(p.peer.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 1)
+        Text(state, style = MaterialTheme.typography.labelMedium, color = if (p.status == TransferStatus.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

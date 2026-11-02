@@ -1,6 +1,7 @@
 package com.flick.app.core
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * Finds devices close enough to exchange files with.
@@ -14,6 +15,12 @@ interface PeerDiscovery {
     suspend fun start()
 
     suspend fun stop()
+
+    /** Emits a phone once the user paired with it and it answered over TLS, so the link is really up. */
+    val associations: Flow<Peer> get() = emptyFlow()
+
+    /** The user made the pairing gesture on this phone. */
+    fun onPairingGesture() = Unit
 }
 
 /**

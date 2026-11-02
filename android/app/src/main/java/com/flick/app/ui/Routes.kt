@@ -12,4 +12,7 @@ object NearbyRoute
 object ProfileRoute
 
 @Serializable
-data class TransferRoute(val peerId: String)
+data class TransferRoute(
+    /** Ids of the recipients, separated by commas. One id unless the user chose to share with several phones. */
+    val peerIds: String,
+)

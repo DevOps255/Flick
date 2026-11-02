@@ -5,7 +5,7 @@ import com.flick.app.core.Peer
 import com.flick.app.core.TransferEngine
 import com.flick.app.core.TransferProgress
 import com.flick.app.core.TransferStatus
-import com.flick.app.data.acoustic.spread
+import com.flick.app.data.nearby.spread
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow

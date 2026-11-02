@@ -2,17 +2,15 @@
 
 ## Flow of one transfer
 
-1. Both phones open Flick. Ultrasonic discovery starts at launch and pauses in the background. The user picks files.
-2. Each phone plays its `Announcement` (`flick-proto`, 18 bytes) as ultrasound and listens for the others (`flick-acoustic`, ggwave).
-3. A phone that hears one rejects replays, learns the address and port, and pins the certificate prefix.
-4. If the phones share a network nothing happens. Otherwise they form a Wi-Fi Direct group:
-   the phone with the larger fingerprint prefix creates it, the other joins, and the group name
-   and password come from a hash of both prefixes (`flick-core/src/link.rs`), so nothing is
-   negotiated over the air. The sender then connects over TLS, and the handshake fails unless
-   the certificate starts with the announced 8 bytes.
-5. A swipe on the file card, or a Flick of the phone (`flick-gesture`), starts the send. Files stream over HTTPS.
+1. Both phones open Flick. Each advertises a 21 byte frame over Bluetooth Low Energy and scans for the others (`flick-proto/src/ble.rs`). The frame holds the announcement: an 8 byte prefix of the TLS certificate fingerprint, the IPv4 address, the port, and whether a pairing gesture just happened. Discovery pauses when the app leaves the screen.
+2. Signal strength gives a rough distance. A Kalman filter smooths it (`flick-proto/src/pairing.rs`).
+3. A phone closer than about a metre is linked ahead of time: nothing on a shared network, otherwise a Wi-Fi Direct group. The phone with the larger fingerprint prefix creates the group, the other joins, and the group name and password are a hash of both prefixes (`flick-core/src/link.rs`), so nothing is negotiated over the air. The link is therefore up before the user does anything.
+4. The user picks a file, then both users tilt their phones. The gyroscope detects a deliberate turn and ignores walking and shaking (`flick-gesture/src/tilt.rs`). Each phone shows the gesture in its next frame.
+5. A phone pairs with the closest phone that made the gesture within 2.5 seconds. Two phones about as close make the answer ambiguous and nothing is paired.
+6. The paired phone must answer over TLS with a certificate that starts with the announced 8 bytes. Only then is it ready, and only then the AirDrop effect plays, on both phones.
+7. A swipe on the file card, or a Flick of the phone (`flick-gesture`), sends. Files stream over HTTPS from the open file descriptor, with a SHA-256 the receiver checks.
 
-Sound only starts the session. It carries no secret and no file data.
+Bluetooth carries no secret and no file data.
 
 ## Included and referenced work
 
@@ -22,7 +20,7 @@ Both projects are copied into `third_party/` with their licenses. See `NOTICE.md
 | --- | --- | --- | --- |
 | LocalSend | Apache 2.0 | `third_party/localsend/packages/core` | HTTPS server and client, certificate identity, resume, file model, multicast discovery on a shared network |
 | DashBeam | AGPL 3.0 | `third_party/dashbeam/engine` | Copied, not called yet. Offers iroh QUIC transport, BLAKE3 verification, pairing and trusted devices |
-| ggwave | MIT | `third_party/ggwave` | Data over sound |
+| ggwave | MIT | `third_party/ggwave` | Data over sound. No longer used by the app, kept in `flick-acoustic` |
 | BluetoothProximity | MIT | reference | Ultrasonic ranging method, to be ported to Rust |
 | NameDrop | MIT | `ui/effects/NameDropShader.kt` | Water wave shader, ported to AGSL. Played when the phones are in sync, at the gesture, and on arrival |
 

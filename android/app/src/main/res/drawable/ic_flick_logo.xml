@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Flick mark: an F whose stem is a lightning bolt. Traced from the supplied logo, 196 by 246 units. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="98dp"
+    android:height="123dp"
+    android:viewportWidth="196"
+    android:viewportHeight="246">
+    <path
+        android:fillColor="#FFAB14"
+        android:pathData="M90,102 L145,102 L165,63 L111,62 Z M85,62 L41,62 L0,142 L44,145 L2,246 L95,126 L56,123 Z M16,0 L36,40 L177,40 L196,0 Z" />
+</vector>

@@ -1,7 +1,6 @@
 package com.flick.app.data
 
 import android.content.Context
-import android.os.Build
 import android.os.Environment
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -27,7 +26,10 @@ import uniffi.flick_ffi.startNode
  * certificate fingerprint is what other phones pin, so it must not change.
  */
 @Singleton
-class NodeRepository @Inject constructor(@ApplicationContext private val context: Context) {
+class NodeRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val profile: ProfileStore,
+) {
     private val lock = Mutex()
     private var node: FlickNode? = null
     private val _events = MutableSharedFlow<TransferEvent>(extraBufferCapacity = 64)
@@ -42,7 +44,7 @@ class NodeRepository @Inject constructor(@ApplicationContext private val context
     /** Starts the node on first use and returns the same one afterwards. */
     suspend fun node(): FlickNode = lock.withLock {
         node ?: withContext(Dispatchers.Default) {
-            startNode(loadOrCreateIdentity(), Build.MODEL, inbox.absolutePath, observer)
+            startNode(loadOrCreateIdentity(), profile.currentName(), inbox.absolutePath, observer)
         }.also { node = it }
     }
 

@@ -23,3 +23,18 @@ interface FriendDao {
     @Upsert
     suspend fun upsert(friend: FriendEntity)
 }
+
+@Dao
+interface FileRecordDao {
+    @Query("SELECT * FROM files ORDER BY atMs DESC LIMIT :limit")
+    fun recent(limit: Int): Flow<List<FileRecordEntity>>
+
+    @Insert
+    suspend fun insert(record: FileRecordEntity)
+
+    @Insert
+    suspend fun insertAll(records: List<FileRecordEntity>)
+
+    @Query("DELETE FROM files WHERE id = :id")
+    suspend fun delete(id: Long)
+}

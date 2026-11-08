@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- Received files live in the app's external Downloads folder, see NodeRepository.inbox. -->
+    <!-- Files that could not be copied to Downloads stay in the app's external Downloads folder, see NodeRepository.inbox. -->
     <external-files-path name="received" path="." />
+    <!-- Files the user picked by path on the phone or on an SD card, opened from the recent files list. -->
+    <root-path name="device" path="." />
 </paths>

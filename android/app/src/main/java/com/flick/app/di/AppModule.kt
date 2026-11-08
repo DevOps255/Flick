@@ -2,11 +2,13 @@ package com.flick.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.flick.app.core.FileCatalog
 import com.flick.app.core.PeerDiscovery
 import com.flick.app.core.TransferEngine
+import com.flick.app.data.DeviceFileCatalog
 import com.flick.app.data.db.FlickDatabase
-import com.flick.app.data.acoustic.AcousticDiscovery
-import com.flick.app.data.acoustic.RealTransferEngine
+import com.flick.app.data.nearby.NearbyDiscovery
+import com.flick.app.data.nearby.RealTransferEngine
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -19,10 +21,13 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class EngineModule {
     @Binds
-    abstract fun discovery(impl: AcousticDiscovery): PeerDiscovery
+    abstract fun discovery(impl: NearbyDiscovery): PeerDiscovery
 
     @Binds
     abstract fun engine(impl: RealTransferEngine): TransferEngine
+
+    @Binds
+    abstract fun catalog(impl: DeviceFileCatalog): FileCatalog
 }
 
 @Module
@@ -31,11 +36,16 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun database(@ApplicationContext context: Context): FlickDatabase =
-        Room.databaseBuilder(context, FlickDatabase::class.java, "flick.db").build()
+        Room.databaseBuilder(context, FlickDatabase::class.java, "flick.db")
+            .addMigrations(FlickDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     fun transferDao(db: FlickDatabase) = db.transferDao()
 
     @Provides
     fun friendDao(db: FlickDatabase) = db.friendDao()
+
+    @Provides
+    fun fileRecordDao(db: FlickDatabase) = db.fileRecordDao()
 }

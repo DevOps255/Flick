@@ -3,7 +3,6 @@ package com.flick.app.ui.transfer
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.webkit.MimeTypeMap
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -52,17 +51,16 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import com.flick.app.data.IncomingTransfer
 import com.flick.app.ui.components.FlickButton
 import com.flick.app.ui.components.formatBytes
-import com.flick.app.ui.effects.LocalNameDrop
-import com.flick.app.ui.theme.Indigo
+import com.flick.app.ui.effects.LocalAirDrop
+import com.flick.app.ui.theme.Accent
 import com.flick.app.ui.theme.Motion
 import com.flick.app.ui.theme.Teal
 import com.flick.app.ui.theme.pressable
+import com.flick.app.ui.openFile
 import com.flick.app.ui.theme.rememberReduceMotion
-import java.io.File
 import java.util.Locale
 
 /**
@@ -84,8 +82,10 @@ fun ReceiveOverlay(incoming: IncomingTransfer, onDone: () -> Unit) {
     val progress by animateFloatAsState(incoming.progress, tween(250, easing = LinearEasing), label = "fill")
     val enter by animateFloatAsState(1f, Motion.settle(), label = "enter")
     val done = incoming.finished && incoming.ok
-    val wave = LocalNameDrop.current
-    LaunchedEffect(incoming.sessionId) { wave.play() }
+    val effect = LocalAirDrop.current
+    LaunchedEffect(incoming.sessionId) {
+        effect.play(title = incoming.fileNames.firstOrNull().orEmpty(), subtitle = "from ${incoming.sender}")
+    }
 
     // One light tick per quarter, and a firmer one when the file is complete.
     val quarter = (incoming.progress * 4).toInt().coerceAtMost(3)
@@ -123,10 +123,10 @@ fun ReceiveOverlay(incoming: IncomingTransfer, onDone: () -> Unit) {
             if (incoming.finished) {
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (done && incoming.savedPaths.size == 1) {
-                        FlickButton("Open", Icons.Outlined.FileDownload, { openFile(context, incoming.savedPaths.first()) }, Teal, Modifier.weight(1f))
+                    if (done && incoming.saving == 0 && incoming.savedUris.size == 1) {
+                        FlickButton("Open", Icons.Outlined.FileDownload, { openFile(context, incoming.savedUris.first()) }, Teal, Modifier.weight(1f))
                     }
-                    FlickButton("Done", Icons.Filled.Check, onDone, Indigo, Modifier.weight(1f))
+                    FlickButton("Done", Icons.Filled.Check, onDone, Accent, Modifier.weight(1f))
                 }
             }
         }
@@ -165,7 +165,7 @@ private fun FillingFile(progress: Float, done: Boolean, shimmer: Boolean) {
         Icon(
             if (done) Icons.Filled.Check else Icons.Outlined.Description,
             contentDescription = null,
-            tint = if (progress > 0.55f || done) Color.White else Indigo,
+            tint = if (progress > 0.55f || done) Color.White else Accent,
             modifier = Modifier.size(40.dp),
         )
     }
@@ -178,22 +178,14 @@ private fun headline(i: IncomingTransfer) = when {
 }
 
 private fun stats(i: IncomingTransfer): String {
-    if (i.finished) return if (i.ok) formatBytes(i.totalBytes) + " saved" else "Nothing was lost on your phone, try again."
+    if (i.finished) {
+        return when {
+            !i.ok -> "Nothing was lost on your phone, try again."
+            i.saving > 0 -> "Saving to Downloads"
+            else -> formatBytes(i.totalBytes) + " saved in Downloads/Flick"
+        }
+    }
     val left = i.secondsLeft?.let { if (it < 1) "almost done" else "about $it s left" } ?: "connecting"
     val speed = if (i.bytesPerSecond > 0) " · " + String.format(Locale.US, "%.1f MB/s", i.bytesPerSecond / 1e6) else ""
     return "${formatBytes(i.doneBytes)} of ${formatBytes(i.totalBytes)}$speed · $left"
-}
-
-internal fun openFile(context: Context, path: String) {
-    val file = File(path)
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-    val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "*/*"
-    val intent = Intent(Intent.ACTION_VIEW)
-        .setDataAndType(uri, mime)
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-    try {
-        context.startActivity(intent)
-    } catch (_: ActivityNotFoundException) {
-        // No app can open this type. The file is still saved.
-    }
 }

@@ -1,9 +1,10 @@
-package com.flick.app.data.acoustic
+package com.flick.app.data.nearby
 
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
@@ -15,6 +16,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -45,6 +47,7 @@ class WifiDirectLink @Inject constructor(@ApplicationContext private val context
     )
 
     private val manager: WifiP2pManager? = context.getSystemService(WifiP2pManager::class.java)
+    private val wifi: WifiManager? = context.getSystemService(WifiManager::class.java)
     private var channel: WifiP2pManager.Channel? = null
     private val lock = Mutex()
 
@@ -68,6 +71,7 @@ class WifiDirectLink @Inject constructor(@ApplicationContext private val context
             is LinkPlanData.JoinGroup -> Triple(plan.ssid, plan.passphrase, false)
             LinkPlanData.SameNetwork -> error("Both phones are already on the same network.")
         }
+        check(wifi?.isWifiEnabled == true) { WIFI_OFF }
         check(hasPermission()) { "Allow nearby devices so Flick can connect the phones." }
         val p2p = checkNotNull(manager) { "Wi-Fi Direct is not available on this phone." }
         val ch = channel ?: p2p.initialize(context, Looper.getMainLooper(), null).also { channel = it }
@@ -76,8 +80,35 @@ class WifiDirectLink @Inject constructor(@ApplicationContext private val context
         runCatching { await { p2p.removeGroup(ch, it) } }
 
         val config = WifiP2pConfig.Builder().setNetworkName(ssid).setPassphrase(passphrase).build()
-        await { if (create) p2p.createGroup(ch, config, it) else p2p.connect(ch, config, it) }
-        withTimeout(GROUP_TIMEOUT_MS) { waitForGroup(p2p, ch) }
+        if (create) {
+            await { p2p.createGroup(ch, config, it) }
+            withTimeout(GROUP_TIMEOUT_MS) { waitForGroup(p2p, ch) }
+        } else {
+            join(p2p, ch, config)
+        }
+    }
+
+    /**
+     * Joins the group, asking again when it fails. The creator opens its group at about the same
+     * moment this phone asks to join, and a join sent a little too early finds nothing. Leaving and
+     * asking again a moment later is what makes the pairing work on the first touch.
+     */
+    @SuppressLint("MissingPermission")
+    private suspend fun join(p2p: WifiP2pManager, ch: WifiP2pManager.Channel, config: WifiP2pConfig): Joined {
+        var lastError: IllegalStateException? = null
+        repeat(JOIN_ATTEMPTS) { _ ->
+            try {
+                await { p2p.connect(ch, config, it) }
+                return withTimeout(JOIN_ATTEMPT_TIMEOUT_MS) { waitForGroup(p2p, ch) }
+            } catch (e: TimeoutCancellationException) {
+                lastError = IllegalStateException(JOIN_TIMEOUT)
+            } catch (e: IllegalStateException) {
+                lastError = e
+            }
+            runCatching { await { p2p.removeGroup(ch, it) } }
+            delay(JOIN_PAUSE_MS)
+        }
+        throw lastError ?: IllegalStateException(JOIN_TIMEOUT)
     }
 
     /** Leaves the group. Safe to call when there is none. */
@@ -115,9 +146,15 @@ class WifiDirectLink @Inject constructor(@ApplicationContext private val context
         else -> "Wi-Fi Direct failed. Check that Wi-Fi is on."
     }
 
-    private companion object {
-        const val GROUP_TIMEOUT_MS = 25_000L
-        const val POLL_MS = 500L
-        const val IPV4_BYTES = 4
+    companion object {
+        /** Shown under a phone that cannot be reached because Wi-Fi is off. */
+        const val WIFI_OFF = "Wi-Fi is off. Turn it on to connect the phones."
+        private const val JOIN_TIMEOUT = "The other phone did not open its group. Hold the phones close and try again."
+        private const val GROUP_TIMEOUT_MS = 25_000L
+        private const val JOIN_ATTEMPTS = 4
+        private const val JOIN_ATTEMPT_TIMEOUT_MS = 10_000L
+        private const val JOIN_PAUSE_MS = 1_500L
+        private const val POLL_MS = 500L
+        private const val IPV4_BYTES = 4
     }
 }

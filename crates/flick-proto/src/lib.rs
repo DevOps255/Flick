@@ -9,6 +9,9 @@
 //! be forged by trying certificates for a few seconds. Eight bytes (64 bits)
 //! cannot be forged in practice.
 
+pub mod ble;
+pub mod pairing;
+
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::time::{Duration, Instant};
@@ -67,7 +70,10 @@ impl Announcement {
 
     /// The prefix as uppercase hex, the form LocalSend uses to pin a certificate.
     pub fn fingerprint_prefix_hex(&self) -> String {
-        self.fingerprint_prefix.iter().map(|b| format!("{b:02X}")).collect()
+        self.fingerprint_prefix
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect()
     }
 }
 
@@ -95,7 +101,10 @@ pub struct ReplayGuard {
 impl ReplayGuard {
     /// Creates a guard that remembers nonces for `window`.
     pub fn new(window: Duration) -> Self {
-        Self { window, seen: HashMap::new() }
+        Self {
+            window,
+            seen: HashMap::new(),
+        }
     }
 
     /// Returns `true` the first time a nonce is seen inside the window.
@@ -152,7 +161,10 @@ mod tests {
 
     #[test]
     fn rejects_wrong_length() {
-        assert_eq!(Announcement::decode(&[0; 11]), Err(DecodeError::WrongLength(11)));
+        assert_eq!(
+            Announcement::decode(&[0; 11]),
+            Err(DecodeError::WrongLength(11))
+        );
     }
 
     #[test]

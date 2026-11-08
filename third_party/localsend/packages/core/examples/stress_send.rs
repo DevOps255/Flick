@@ -21,14 +21,20 @@ const FILE_SIZE: usize = 1024 * 1024;
 async fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
     let host = args.next().unwrap_or_else(|| "127.0.0.1".to_string());
-    let port: u16 = args.next().map(|arg| arg.parse()).transpose()?.unwrap_or(53317);
+    let port: u16 = args
+        .next()
+        .map(|arg| arg.parse())
+        .transpose()?
+        .unwrap_or(53317);
     let pin = args.next();
 
     let mut rng = rand::rng();
 
     // Random fingerprint in the SHA-256 uppercase hex format.
     // A fresh one per run, so the receiver treats every run as a new device.
-    let fingerprint: String = (0..32).map(|_| format!("{:02X}", rng.random::<u8>())).collect();
+    let fingerprint: String = (0..32)
+        .map(|_| format!("{:02X}", rng.random::<u8>()))
+        .collect();
 
     let files: HashMap<String, FileDto> = (0..FILE_COUNT)
         .map(|i| {
@@ -79,7 +85,10 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     let Some(response) = prepared.response else {
-        println!("Receiver accepted no files (status {})", prepared.status_code);
+        println!(
+            "Receiver accepted no files (status {})",
+            prepared.status_code
+        );
         return Ok(());
     };
     println!(

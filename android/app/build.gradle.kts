@@ -17,6 +17,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -34,7 +35,13 @@ android {
 }
 
 // Room writes its schema here so migrations can be diffed in review.
-ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("dagger.hilt.disableModulesHaveInstallInCheck", "true")
+    arg("ksp.allow.all.output.structures", "true")
+}
+
+
 
 dependencies {
     implementation(libs.androidx.core.ktx)
@@ -54,6 +61,11 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
 
+    // Thumbnails of photos and video frames, and the fuzzy search of the send screen.
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
+    implementation(libs.fuzzywuzzy)
+
     // Runtime that loads the Rust library through the generated UniFFI bindings.
     implementation("net.java.dev.jna:jna:5.14.0@aar")
 
@@ -67,4 +79,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }

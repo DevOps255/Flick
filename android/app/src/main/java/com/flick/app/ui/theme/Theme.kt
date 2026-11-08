@@ -10,7 +10,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 private val colors = lightColorScheme(
-    primary = Indigo,
+    primary = Accent,
     onPrimary = Color.White,
     secondary = Teal,
     onSecondary = Color.White,

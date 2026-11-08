@@ -16,8 +16,11 @@ data class Peer(
     val note: String? = null,
 )
 
-/** The local user, shown on the home card and announced to peers. */
-data class Profile(val name: String, val flickId: String)
+/**
+ * The local user, shown on the profile and announced to peers.
+ * [photoPath] is a file inside the app's private storage, or null while the user has no photo.
+ */
+data class Profile(val name: String, val flickId: String, val photoPath: String? = null)
 
 /** A file queued for sending or being received. */
 data class FileItem(
@@ -45,3 +48,25 @@ data class TransferProgress(
     val progress: Float
         get() = if (totalBytes == 0L) 0f else (doneBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
 }
+
+/** The kinds of file the send screen offers, in the order of its cards. */
+enum class FileCategory { Documents, Downloads, Videos, Audio, Apps, Images }
+
+/** A file found on the phone, ready to be picked. [uri] is a content or file URI that can be opened for reading. */
+data class DeviceFile(
+    val uri: String,
+    val name: String,
+    val sizeBytes: Long,
+    val modifiedMs: Long,
+    val mime: String,
+    val category: FileCategory,
+    /** Package name, only for [FileCategory.Apps]. The icon is read from the package manager. */
+    val packageName: String? = null,
+) {
+    fun toItem() = FileItem(uri = uri, name = name, sizeBytes = sizeBytes)
+}
+
+enum class SortKey { Name, Date, Size }
+
+/** How the file list is ordered. [descending] reverses it. */
+data class FileSort(val key: SortKey = SortKey.Date, val descending: Boolean = true)

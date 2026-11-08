@@ -17,8 +17,15 @@ class SendSelection @Inject constructor(@ApplicationContext private val context:
     private val _files = MutableStateFlow<List<FileItem>>(emptyList())
     val files: StateFlow<List<FileItem>> = _files.asStateFlow()
 
+    @JvmName("selectByUris")
     fun select(uris: List<Uri>) {
         _files.value = uris.map(::describe)
+    }
+
+    /** Selects files whose name and size are already known, so nothing is read from the URI. Needed for plain file URIs. */
+    @JvmName("selectByFileItems")
+    fun select(items: List<FileItem>) {
+        _files.value = items
     }
 
     fun clear() {

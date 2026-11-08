@@ -265,7 +265,8 @@ async fn test_subnet_scan_finds_device_on_loopback() {
     let (server_port, _server_stop) =
         start_register_server("ScanTarget", "scan-fingerprint", None).await;
 
-    let Some(mut instance) = start_instance("Scanner", multicast_port, announce_port()).await else {
+    let Some(mut instance) = start_instance("Scanner", multicast_port, announce_port()).await
+    else {
         return skip("no network interface available for multicast");
     };
 
@@ -415,7 +416,8 @@ async fn test_announcement_is_answered_and_device_stored() {
 
     // The receiver answers the announcement with a register request to the
     // announcer's HTTP server, so the announcer needs a real one.
-    let Some(mut receiver) = start_instance("Receiver", multicast_port, announce_port()).await else {
+    let Some(mut receiver) = start_instance("Receiver", multicast_port, announce_port()).await
+    else {
         return skip("no network interface available for multicast");
     };
     let announcer_cert = generate_self_signed().expect("Failed to generate an identity");

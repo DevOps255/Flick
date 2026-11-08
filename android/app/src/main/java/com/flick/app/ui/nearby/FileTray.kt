@@ -13,16 +13,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,11 +41,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.flick.app.core.FileItem
 import com.flick.app.ui.components.FlickButton
 import com.flick.app.ui.components.formatBytes
-import com.flick.app.ui.theme.Indigo
+import com.flick.app.ui.theme.Accent
 import com.flick.app.ui.theme.Motion
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -54,19 +61,25 @@ import kotlinx.coroutines.launch
  *
  * When no phone is ready the card resists the drag, so it is clear nothing
  * will be sent yet.
+ *
+ * A single file has a cross on its card. With several files the card shows the count and each
+ * file has its own row below with its own cross. "Change files" opens the file browser again,
+ * so the choice can be redone without going back to the home screen.
  */
 @Composable
 fun FileTray(
     files: List<FileItem>,
     canSend: Boolean,
+    sendHint: String,
     throwRequests: Flow<Unit>,
     onThrowStart: () -> Unit,
     onThrow: () -> Unit,
     onPickFiles: () -> Unit,
+    onRemove: (FileItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (files.isEmpty()) {
-        FlickButton("Choose a file to send", Icons.AutoMirrored.Outlined.Send, onPickFiles, Indigo, modifier.fillMaxWidth().padding(horizontal = 20.dp))
+        FlickButton("Choose a file to send", Icons.AutoMirrored.Outlined.Send, onPickFiles, Accent, modifier.fillMaxWidth().padding(horizontal = 20.dp))
         return
     }
 
@@ -107,7 +120,7 @@ fun FileTray(
 
     Column(modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            if (canSend) "Swipe up, or flick your phone" else "Hold the phones closer together",
+            if (canSend) sendHint else "Hold the phones closer together",
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(bottom = 10.dp),
         )
@@ -136,17 +149,34 @@ fun FileTray(
                     },
                 )
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
-                .border(2.dp, Indigo.copy(alpha = glow), RoundedCornerShape(20.dp))
+                .border(2.dp, Accent.copy(alpha = glow), RoundedCornerShape(20.dp))
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Description, null, tint = Indigo, modifier = Modifier.size(36.dp))
+            Icon(Icons.Outlined.Description, null, tint = Accent, modifier = Modifier.size(36.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
                 Text(size, style = MaterialTheme.typography.labelMedium)
             }
+            if (files.size == 1) {
+                IconButton(onClick = { onRemove(files.first()) }) { Icon(Icons.Outlined.Close, contentDescription = "Remove from the list") }
+            }
         }
+        if (files.size > 1) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 168.dp).verticalScroll(rememberScrollState()).padding(top = 8.dp)) {
+                files.forEach { file ->
+                    Row(Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(file.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(formatBytes(file.sizeBytes), style = MaterialTheme.typography.labelMedium)
+                        }
+                        IconButton(onClick = { onRemove(file) }) { Icon(Icons.Outlined.Close, contentDescription = "Remove ${file.name}") }
+                    }
+                }
+            }
+        }
+        TextButton(onClick = onPickFiles) { Text("Change files") }
     }
 }
 

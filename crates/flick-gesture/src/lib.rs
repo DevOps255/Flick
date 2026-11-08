@@ -8,6 +8,8 @@
 //! The detector is platform independent: Android and desktop feed it samples
 //! and read back the result. It does no I/O and keeps no clock of its own.
 
+pub mod tilt;
+
 /// One accelerometer reading, in m/s² including gravity.
 #[derive(Clone, Copy, Debug)]
 pub struct Sample {
@@ -32,7 +34,12 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { gravity_alpha: 0.9, peak_threshold: 14.0, max_burst_ms: 250, cooldown_ms: 800 }
+        Self {
+            gravity_alpha: 0.9,
+            peak_threshold: 14.0,
+            max_burst_ms: 250,
+            cooldown_ms: 800,
+        }
     }
 }
 
@@ -77,8 +84,8 @@ impl Detector {
     pub fn push(&mut self, s: Sample) -> Option<Flick> {
         let g = self.gravity.get_or_insert(s.accel);
         let a = self.cfg.gravity_alpha;
-        for i in 0..3 {
-            g[i] = a * g[i] + (1.0 - a) * s.accel[i];
+        for (gravity, reading) in g.iter_mut().zip(s.accel) {
+            *gravity = a * *gravity + (1.0 - a) * reading;
         }
         let lin = [s.accel[0] - g[0], s.accel[1] - g[1], s.accel[2] - g[2]];
         let mag = (lin[0] * lin[0] + lin[1] * lin[1] + lin[2] * lin[2]).sqrt();
@@ -117,10 +124,16 @@ impl Detector {
     }
 
     fn finish(&mut self, t_ms: u64) -> Option<Flick> {
-        let flick = Flick { t_ms, peak: self.peak, direction: self.direction };
+        let flick = Flick {
+            t_ms,
+            peak: self.peak,
+            direction: self.direction,
+        };
         self.burst_start = None;
         self.peak = 0.0;
-        let cooled = self.last_fired.map_or(true, |t| t_ms - t >= self.cfg.cooldown_ms);
+        let cooled = self
+            .last_fired
+            .is_none_or(|t| t_ms - t >= self.cfg.cooldown_ms);
         if cooled {
             self.last_fired = Some(t_ms);
             Some(flick)
@@ -141,7 +154,12 @@ mod tests {
         readings
             .iter()
             .enumerate()
-            .filter_map(|(i, &accel)| det.push(Sample { t_ms: start_ms + i as u64 * STEP_MS, accel }))
+            .filter_map(|(i, &accel)| {
+                det.push(Sample {
+                    t_ms: start_ms + i as u64 * STEP_MS,
+                    accel,
+                })
+            })
             .collect()
     }
 

@@ -50,7 +50,9 @@ pub fn same_subnet(a: [u8; 4], b: [u8; 4], prefix_len: u8) -> bool {
     if !(MIN_PREFIX_LEN..=32).contains(&prefix_len) {
         return false;
     }
-    let mask = u32::MAX.checked_shl(32 - u32::from(prefix_len)).unwrap_or(0);
+    let mask = u32::MAX
+        .checked_shl(32 - u32::from(prefix_len))
+        .unwrap_or(0);
     (u32::from_be_bytes(a) & mask) == (u32::from_be_bytes(b) & mask)
 }
 
@@ -60,14 +62,22 @@ pub fn credentials(a: &[u8; 8], b: &[u8; 8]) -> Credentials {
     let mut input = b"flick-link-v1".to_vec();
     input.extend_from_slice(low);
     input.extend_from_slice(high);
-    let hex: String = sha256(&input).iter().map(|byte| format!("{byte:02X}")).collect();
-    Credentials { ssid: format!("DIRECT-FK-{}", &hex[..8]), passphrase: hex[8..24].to_string() }
+    let hex: String = sha256(&input)
+        .iter()
+        .map(|byte| format!("{byte:02X}"))
+        .collect();
+    Credentials {
+        ssid: format!("DIRECT-FK-{}", &hex[..8]),
+        passphrase: hex[8..24].to_string(),
+    }
 }
 
 /// Chooses what this phone does about `peer`, given the networks it is on.
 pub fn plan(own_prefix: &[u8; 8], own_links: &[LocalLink], peer: &Announcement) -> LinkPlan {
     let reachable = peer.ipv4 != [0; 4]
-        && own_links.iter().any(|link| link.ip != [0; 4] && same_subnet(link.ip, peer.ipv4, link.prefix_len));
+        && own_links
+            .iter()
+            .any(|link| link.ip != [0; 4] && same_subnet(link.ip, peer.ipv4, link.prefix_len));
     if reachable {
         return LinkPlan::SameNetwork;
     }
@@ -87,34 +97,70 @@ mod tests {
     const YOU: [u8; 8] = [3, 3, 3, 3, 3, 3, 3, 3];
 
     fn heard(ipv4: [u8; 4]) -> Announcement {
-        Announcement { fingerprint_prefix: YOU, ipv4, port: 53317, nonce: [0; 4] }
+        Announcement {
+            fingerprint_prefix: YOU,
+            ipv4,
+            port: 53317,
+            nonce: [0; 4],
+        }
     }
 
     fn wifi() -> LocalLink {
-        LocalLink { ip: [192, 168, 1, 20], prefix_len: 24 }
+        LocalLink {
+            ip: [192, 168, 1, 20],
+            prefix_len: 24,
+        }
     }
 
     #[test]
     fn same_wifi_needs_no_link() {
-        assert_eq!(plan(&ME, &[wifi()], &heard([192, 168, 1, 77])), LinkPlan::SameNetwork);
+        assert_eq!(
+            plan(&ME, &[wifi()], &heard([192, 168, 1, 77])),
+            LinkPlan::SameNetwork
+        );
     }
 
     #[test]
     fn different_subnet_needs_a_link() {
-        assert!(matches!(plan(&ME, &[wifi()], &heard([192, 168, 2, 77])), LinkPlan::CreateGroup(_)));
+        assert!(matches!(
+            plan(&ME, &[wifi()], &heard([192, 168, 2, 77])),
+            LinkPlan::CreateGroup(_)
+        ));
     }
 
     #[test]
     fn no_address_on_either_side_needs_a_link() {
-        assert!(matches!(plan(&ME, &[], &heard([0; 4])), LinkPlan::CreateGroup(_)));
-        assert!(matches!(plan(&ME, &[wifi()], &heard([0; 4])), LinkPlan::CreateGroup(_)));
-        assert!(matches!(plan(&ME, &[LocalLink { ip: [0; 4], prefix_len: 24 }], &heard([0; 4])), LinkPlan::CreateGroup(_)));
+        assert!(matches!(
+            plan(&ME, &[], &heard([0; 4])),
+            LinkPlan::CreateGroup(_)
+        ));
+        assert!(matches!(
+            plan(&ME, &[wifi()], &heard([0; 4])),
+            LinkPlan::CreateGroup(_)
+        ));
+        assert!(matches!(
+            plan(
+                &ME,
+                &[LocalLink {
+                    ip: [0; 4],
+                    prefix_len: 24
+                }],
+                &heard([0; 4])
+            ),
+            LinkPlan::CreateGroup(_)
+        ));
     }
 
     #[test]
     fn already_in_the_same_direct_group_needs_nothing() {
-        let group = LocalLink { ip: [192, 168, 49, 1], prefix_len: 24 };
-        assert_eq!(plan(&ME, &[wifi(), group], &heard([192, 168, 49, 5])), LinkPlan::SameNetwork);
+        let group = LocalLink {
+            ip: [192, 168, 49, 1],
+            prefix_len: 24,
+        };
+        assert_eq!(
+            plan(&ME, &[wifi(), group], &heard([192, 168, 49, 5])),
+            LinkPlan::SameNetwork
+        );
     }
 
     #[test]
@@ -123,7 +169,12 @@ mod tests {
         let theirs = plan(
             &YOU,
             &[],
-            &Announcement { fingerprint_prefix: ME, ipv4: [0; 4], port: 1, nonce: [0; 4] },
+            &Announcement {
+                fingerprint_prefix: ME,
+                ipv4: [0; 4],
+                port: 1,
+                nonce: [0; 4],
+            },
         );
         match (mine, theirs) {
             (LinkPlan::CreateGroup(a), LinkPlan::JoinGroup(b)) => assert_eq!(a, b),
@@ -137,7 +188,11 @@ mod tests {
         assert_eq!(c, credentials(&YOU, &ME));
         assert!(c.ssid.starts_with("DIRECT-FK-") && c.ssid.len() <= 32);
         assert!((8..=63).contains(&c.passphrase.len()));
-        assert_ne!(c, credentials(&ME, &[4; 8]), "another pair gets another group");
+        assert_ne!(
+            c,
+            credentials(&ME, &[4; 8]),
+            "another pair gets another group"
+        );
     }
 
     #[test]
@@ -146,7 +201,10 @@ mod tests {
         assert!(!same_subnet([10, 0, 0, 1], [10, 1, 0, 1], 16));
         assert!(same_subnet([192, 168, 1, 1], [192, 168, 1, 1], 32));
         assert!(!same_subnet([192, 168, 1, 1], [192, 168, 1, 2], 32));
-        assert!(!same_subnet([1, 1, 1, 1], [200, 2, 2, 2], 0), "a zero length prefix is refused");
+        assert!(
+            !same_subnet([1, 1, 1, 1], [200, 2, 2, 2], 0),
+            "a zero length prefix is refused"
+        );
         assert!(!same_subnet([1, 1, 1, 1], [1, 1, 1, 1], 33));
     }
 }

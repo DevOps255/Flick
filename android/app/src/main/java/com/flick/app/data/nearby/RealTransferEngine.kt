@@ -1,8 +1,7 @@
-package com.flick.app.data.acoustic
+package com.flick.app.data.nearby
 
 import android.content.Context
 import android.net.Uri
-import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import com.flick.app.core.FileItem
 import com.flick.app.core.Peer
@@ -12,6 +11,7 @@ import com.flick.app.core.TransferStatus
 import com.flick.app.data.NodeRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -26,11 +26,11 @@ import uniffi.flick_ffi.SendObserver
  * Sends files through the Rust node.
  *
  * Picked files are Android content URIs without a path. Each one is opened as a
- * file descriptor and handed to Rust as `/proc/self/fd/N`, so nothing is copied.
+ * file descriptor and handed to Rust, so nothing is copied and no path is ever reopened.
  */
 class RealTransferEngine @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val discovery: AcousticDiscovery,
+    private val discovery: NearbyDiscovery,
     private val nodes: NodeRepository,
 ) : TransferEngine {
 
@@ -48,14 +48,14 @@ class RealTransferEngine @Inject constructor(
 
         var node: FlickNode? = null
         val job = CoroutineScope(Dispatchers.IO).launch {
-            val opened = mutableListOf<ParcelFileDescriptor>()
             try {
                 val outgoing = files.map { file ->
                     val pfd = requireNotNull(context.contentResolver.openFileDescriptor(Uri.parse(file.uri), "r")) {
                         "Cannot open ${file.name}"
                     }
-                    opened += pfd
-                    OutgoingFileData("/proc/self/fd/${pfd.fd}", file.name, file.sizeBytes.toULong())
+                    // detachFd hands the descriptor to Rust, which reads from it and closes it.
+                    // Reopening the file by path would be refused: Android only lets this app read it through this descriptor.
+                    OutgoingFileData(pfd.detachFd(), file.name, file.sizeBytes.toULong())
                 }
                 val running = nodes.node().also { node = it }
                 var lastMs = SystemClock.elapsedRealtime()
@@ -79,10 +79,12 @@ class RealTransferEngine @Inject constructor(
                     },
                 )
                 trySend(snapshot(files.sumOf { it.sizeBytes }, 0, TransferStatus.Completed))
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // Throwable on purpose: a missing native library is an Error, not an Exception.
                 trySend(snapshot(0, 0, TransferStatus.Failed, e.message ?: "Transfer failed"))
             } finally {
-                opened.forEach { it.close() }
                 close()
             }
         }

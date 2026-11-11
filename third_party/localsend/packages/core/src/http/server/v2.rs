@@ -254,11 +254,18 @@ pub(crate) async fn prepare_upload(
     // Claim the single session slot.
     {
         let mut slot = v2.session.lock().await;
-        if slot.is_some() {
-            return Err(AppError::Message(
-                StatusCode::CONFLICT,
-                "Blocked by another session".to_string(),
-            ));
+        match slot.as_ref() {
+            None => {}
+            // The same phone asks again. A transfer that failed halfway never ends its session, and
+            // the receiver then refused every new transfer with 409 until the app was restarted.
+            // The earlier session of this sender is dead, so the new one replaces it.
+            Some(SessionStateV2::Active(old)) if old.sender_ip == client_info.ip => {}
+            Some(_) => {
+                return Err(AppError::Message(
+                    StatusCode::CONFLICT,
+                    "Blocked by another session".to_string(),
+                ));
+            }
         }
         *slot = Some(SessionStateV2::Pending(PendingSessionV2 {
             session_id: session_id.clone(),

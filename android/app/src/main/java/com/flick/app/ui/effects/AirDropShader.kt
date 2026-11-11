@@ -1,70 +1,52 @@
 package com.flick.app.ui.effects
 
 /**
- * The AirDrop effect, ported from GLSL to AGSL: the background blurs and stretches upward, a wave
- * crosses the screen, and three soft coloured glows pass by.
+ * The AirDrop effect, written for Flick in AGSL after the iPhone effect. It has four moves:
  *
- * Original: https://www.shadertoy.com/view/dlXczX (Shadertoy). Its author is named on that page and
- * its license is not stated in the code. Shadertoy's default is Creative Commons Attribution
- * NonCommercial ShareAlike 3.0, which does not allow commercial use. See `NOTICE.md`.
+ * 1. A coloured glow rises from the bottom of the screen. The picture blurs and bends toward it as it rises.
+ * 2. The glow gathers at the notch and keeps getting brighter and blurrier.
+ * 3. A wave strikes down from the notch. Where it passes the picture is bent by the wave, so the
+ *    distortion travels with the front. A thin bright band marks the front.
+ * 4. Behind the front the screen is clean again. The effect is wiped away by the wave itself, so it
+ *    needs no fade at the end, and nothing ever moves back up.
  *
- * Changes from the original, each checked by `scripts/check_airdrop_port.py`:
- * - Same maths otherwise: on 100000 sample points the colours are identical.
- * - The original counts y upward and Android downward, so y is flipped on entry and on every read.
- * - The original measures distances in screen fractions, so on a tall phone the wave and glows are
- *   stretched. Here x is scaled by the aspect ratio, so they are round on every screen.
- * - The original blurs with a 35 sample kernel on a mipmap, which AGSL cannot sample. A 7 by 7
- *   gaussian with 4 pixel spacing replaces it, scaled with the screen width. On a hard edge the two
- *   differ by 0.038 on a scale of 0 to 1.
- * - At radius 0 the original divides by zero in `smoothstep`, so the wave mask is 0 there.
- * - The shader maths is untouched by the timing. `shaderTime` in `AirDropEffect.kt` is linear, like the clock
- *   of the reference video.
+ * It replaces the earlier port of a Shadertoy shader, which blurred and stretched the whole screen at
+ * once and then undid it, and so looked like a stretched, fading copy instead of a wave.
+ *
+ * The four numbers come from `airDropFrame` in `AirDropEffect.kt`, which sets the timing:
+ * [rise] moves the glow up, [energy] makes it brighter and blurrier, [accumulate] lights the notch, and
+ * [wave] is how far the front has gone, from 0 at the notch to 1 when it has left the screen.
+ * y points up inside the shader's maths and x is scaled by the aspect ratio, so shapes are round.
+ *
+ * The preview that tuned the numbers is `scripts/preview_airdrop.py`.
  */
 internal const val AIRDROP_AGSL = """
 uniform shader image;
 uniform float2 size;
-uniform float time;
+uniform float rise;
+uniform float energy;
+uniform float accumulate;
+uniform float wave;
 
-const float PI = 3.14159265359;
-
-float mapRange(float value, float min1, float max1, float min2, float max2) {
-    return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+float sq(float x) {
+    return x * x;
 }
 
-float easeInCubic(float x) {
-    return 1.0 - cos((x * PI) / 2.0);
-}
-
-// 0 inside the ring and outside it, 1 on the ring. x is scaled by the aspect ratio so the ring is round.
-float circleMask(float2 st, float radius, float aspect) {
-    if (radius < 0.0001) {
-        return 0.0;
-    }
-    float2 dist = float2((st.x - 0.5) * aspect, st.y - 1.0);
-    float d = dot(dist, dist) * 4.0;
-    float c1 = smoothstep(radius - radius * 0.5, radius, d);
-    float c2 = 1.0 - smoothstep(radius, radius + radius * 0.5, d);
-    return c1 * c2;
-}
-
-float glow(float2 uv, float centreY, float aspect) {
-    return smoothstep(0.0, 0.25, distance(float2(uv.x * aspect, uv.y), float2(0.5 * aspect, centreY)));
-}
-
-// Reads the screen at a point given in the original's coordinates: 0 to 1, y upward.
+// Reads the screen at a point given as 0 to 1, y upward. Outside the screen the nearest edge is read.
 float4 sampleUv(float2 uv) {
-    float2 px = float2(uv.x * size.x, (1.0 - uv.y) * size.y);
+    float2 px = float2(clamp(uv.x, 0.0, 1.0) * size.x, (1.0 - uv.y) * size.y);
     return image.eval(clamp(px, float2(0.0), size - 1.0));
 }
 
+// A 7 by 7 gaussian blur, about 20 pixels wide on a 1080 pixel screen.
 float4 blurred(float2 px) {
     float scale = size.x / 1080.0;
     float4 sum = float4(0.0);
     float weights = 0.0;
     for (int j = -3; j <= 3; j++) {
         for (int i = -3; i <= 3; i++) {
-            float2 d = float2(float(i), float(j)) * 4.0 * scale;
-            float w = exp(-0.5 * dot(d, d) / (81.0 * scale * scale));
+            float2 d = float2(float(i), float(j)) * 10.0 * scale;
+            float w = exp(-0.5 * dot(d, d) / (400.0 * scale * scale));
             sum += w * image.eval(clamp(px + d, float2(0.0), size - 1.0));
             weights += w;
         }
@@ -72,48 +54,61 @@ float4 blurred(float2 px) {
     return sum / weights;
 }
 
+// The blur is read where the picture is read, after it has been bent. Reading it anywhere else
+// shows a second copy of the screen under the first.
+float4 blurredAt(float2 uv) {
+    return blurred(float2(clamp(uv.x, 0.0, 1.0) * size.x, (1.0 - uv.y) * size.y));
+}
+
 half4 main(float2 fragCoord) {
     float aspect = size.x / size.y;
-    float2 uv = float2(fragCoord.x / size.x, 1.0 - fragCoord.y / size.y);
-    float range = (1.0 + sin(time)) * 0.5;
+    float2 st = float2(fragCoord.x / size.x, 1.0 - fragCoord.y / size.y);
+    float px = (st.x - 0.5) * aspect;
 
-    // glows
-    float pct = glow(uv, mapRange(range, 0.0, 1.0, -0.2, 1.6), aspect);
-    float3 gcircle = mix(float3(0.8549, 0.9922, 1.0), float3(1.0), pct);
-    float pct2 = glow(uv, mapRange(range, 0.0, 1.0, -0.3, 1.5), aspect);
-    float3 gcircle2 = mix(float3(1.0, 0.9882, 0.8549), float3(1.0), pct2);
-    float pct3 = glow(uv, mapRange(range, 0.0, 1.0, -0.4, 1.4), aspect);
-    float3 gcircle3 = mix(float3(1.0, 0.8902, 0.8784), float3(1.0), pct3);
+    // The wave starts at the notch, at the top middle. d is the distance to it.
+    float d = length(float2(px, st.y - 1.0));
+    float farthest = sqrt(0.25 * aspect * aspect + 1.0);
+    float front = wave * (farthest + 0.45);
 
-    // blur, stronger toward the top and as the effect peaks
-    float blurpct = smoothstep(0.0, 1.0, uv.y) * range;
-    float4 blurredPixel = blurred(fragCoord);
+    // 1 ahead of the front, where the effect is still on. 0 behind it, where the screen is clean.
+    float ahead = smoothstep(front - 0.30, front, d);
 
-    // stretch upward
-    float yStretch = easeInCubic(uv.y) * 0.1 * range;
-    uv.y -= yStretch;
+    // The glow rises from below the screen to just under the notch.
+    float glowY = -0.35 + 1.31 * rise;
 
-    // wave
-    float range2 = sin(time) < 0.0 ? 0.0 : sin(time);
-    float2 st2 = uv;
-    float r = 5.0 * range2;
-    float wpct = 1.0 - circleMask(st2, r, aspect);
-    float3 cc = mix(float3(1.069, 1.077, 1.100), float3(1.0), wpct);
-    cc = pow(cc, float3(8.0));
-    float wStretch = st2.y * 0.3 * range2 * (wpct - st2.y);
-    st2.y += wStretch;
-    float4 wcolor = sampleUv(st2);
-    wcolor *= float4(cc, 1.0);
+    // Before the strike the picture bends toward the glow.
+    float bend = exp(-sq((st.y - glowY) / 0.30));
+    float v = st.y + (glowY - st.y) * 0.10 * bend * energy * ahead;
+    float u = st.x;
 
-    // The original comments "remove the wstretch" but adds it back, so both reads share one position.
-    uv.y += wStretch;
-    float4 color = sampleUv(uv);
+    // At the strike the picture is pushed outward from the notch, in a band just behind the front.
+    float ring = 0.0;
+    if (wave > 0.0) {
+        ring = exp(-sq((d - (front - 0.10)) / 0.11)) * (1.0 - wave * 0.3);
+    }
+    float2 outward = float2(px, st.y - 1.0) / max(d, 0.0001);
+    u -= outward.x * 0.05 * ring / aspect;
+    v -= outward.y * 0.05 * ring;
 
-    color = mix(color, wcolor, pct);
-    color = mix(color, blurredPixel, blurpct);
-    color *= float4(gcircle, 1.0);
-    color *= float4(gcircle2, 1.0);
-    color *= float4(gcircle3, 1.0);
-    return half4(color);
+    float2 where = float2(u, v);
+    float4 sharp = sampleUv(where);
+    float4 soft = blurredAt(where);
+
+    // Blur grows with the energy and is stronger toward the top.
+    float blurAmount = energy * (0.35 + 0.65 * smoothstep(0.0, 1.0, st.y)) * ahead;
+    float3 colour = mix(sharp.rgb, soft.rgb, blurAmount);
+
+    // The glow goes from pink on the left to blue on the right.
+    float side = smoothstep(-0.4, 0.4, px);
+    float3 glowColour = float3(1.0 - 0.55 * side, 0.45 + 0.20 * side, 0.70 + 0.30 * side);
+    float body = exp(-(sq(px / 0.62) + sq((st.y - glowY) / 0.38)));
+    float notch = exp(-(sq(px / 0.40) + sq((st.y - 1.0) / 0.14))) * accumulate;
+    float light = (body * energy * 0.9 + notch * 1.2) * ahead;
+    colour = mix(colour, glowColour, clamp(light, 0.0, 1.0) * 0.85);
+
+    // The bright band at the front of the wave.
+    colour += float3(ring * 0.18);
+
+    return half4(half3(clamp(colour, float3(0.0), float3(1.0))), sharp.a);
 }
 """

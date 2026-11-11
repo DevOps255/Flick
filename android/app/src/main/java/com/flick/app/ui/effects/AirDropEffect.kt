@@ -3,6 +3,7 @@ package com.flick.app.ui.effects
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
 import android.os.Build
+import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -40,8 +41,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.flick.app.ui.theme.Accent
-import kotlin.math.PI
-import kotlin.math.sin
+import kotlin.math.pow
 
 /**
  * Starts the AirDrop effect. Any screen can call [play].
@@ -62,31 +62,64 @@ class AirDropEffect {
     var subtitle by mutableStateOf("")
         private set
 
+    /** When the last run ended, so a run is not started again right after another. */
+    internal var endedAt = 0L
+
+    /**
+     * Starts a run. A call while a run is playing, or just after one, is ignored: the link state can
+     * change several times in a second, and a run that restarts each time never reaches its end.
+     */
     fun play(title: String, subtitle: String = "") {
+        if (active || SystemClock.elapsedRealtime() - endedAt < COOLDOWN_MS) return
         this.title = title
         this.subtitle = subtitle
+        active = true
         request++
     }
 }
 
+private const val COOLDOWN_MS = 1_500L
+
 val LocalAirDrop = compositionLocalOf { AirDropEffect() }
 
-/** The shader's clock is at rest at [START] and again at [END]. The wave exists between 0 and PI. */
-private const val START = (-PI / 2).toFloat()
-private const val END = (3 * PI / 2).toFloat()
+/** The glow rises. */
+internal const val RISE_MS = 900
+
+/** The glow gathers at the notch and keeps getting brighter. */
+internal const val ACCUMULATE_MS = 700
+
+/** The wave strikes down from the notch and wipes the effect away behind it. */
+internal const val STRIKE_MS = 500
+
+internal const val TOTAL_MS = RISE_MS + ACCUMULATE_MS + STRIKE_MS
+
+/** The four numbers the shader needs at one instant. See `AirDropShader.kt`. */
+internal data class AirDropFrame(val rise: Float, val energy: Float, val accumulate: Float, val wave: Float)
+
+private fun smoothStep(from: Float, to: Float, x: Float): Float {
+    val t = ((x - from) / (to - from)).coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
+}
 
 /**
- * How long one full run lasts. In the reference video the shader clock advances at about 1.7 radians
- * per second, so the full sine cycle of 2 PI radians takes about 3.7 seconds: the wave appears
- * about a second in, strikes at about 1.85 seconds, then everything fades.
+ * The timing of a run, for a clock that goes from 0 to 1. Everything only grows. The wave speeds up as it
+ * falls, so it arrives with weight, and when it is gone nothing is left to fade.
  */
-internal const val DURATION_MS = 3_700
+internal fun airDropFrame(clock: Float): AirDropFrame {
+    val ms = clock * TOTAL_MS
+    val strike = ((ms - (RISE_MS + ACCUMULATE_MS)) / STRIKE_MS).coerceIn(0f, 1f)
+    return AirDropFrame(
+        rise = smoothStep(0f, RISE_MS.toFloat(), ms),
+        energy = smoothStep(0f, (RISE_MS + ACCUMULATE_MS).toFloat(), ms),
+        accumulate = smoothStep(RISE_MS * 0.6f, (RISE_MS + ACCUMULATE_MS).toFloat(), ms),
+        wave = strike.pow(2.2f),
+    )
+}
 
-/**
- * The shader time for a clock value from 0 to 1. The clock is linear, as in the reference video:
- * no easing is added, so the shader's own sine decides how the wave builds up and strikes.
- */
-internal fun shaderTime(clock: Float): Float = START + (END - START) * clock
+/** The animated clock of one run. */
+private class Run {
+    val clock = Animatable(0f)
+}
 
 /**
  * Draws [content] with the effect. The file card is part of the content while the effect plays, so
@@ -102,21 +135,21 @@ fun AirDropHost(
     foreground: @Composable BoxScope.() -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val clock = remember { Animatable(0f) }
+    val run = remember { Run() }
     LaunchedEffect(effect.request) {
         if (effect.request == 0) return@LaunchedEffect
-        effect.active = true
-        clock.snapTo(0f)
-        clock.animateTo(1f, tween(DURATION_MS, easing = LinearEasing))
+        run.clock.snapTo(0f)
+        run.clock.animateTo(1f, tween(TOTAL_MS, easing = LinearEasing))
         effect.active = false
+        effect.endedAt = SystemClock.elapsedRealtime()
     }
     Box(modifier) {
         when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> ShaderLayer(effect, clock, content)
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> BlurLayer(effect, clock, content)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> ShaderLayer(effect, run, content)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> BlurLayer(effect, run, content)
             else -> {
                 content()
-                if (effect.active) Spotlight(effect, clock)
+                if (effect.active) Spotlight(effect, run)
             }
         }
         foreground()
@@ -125,14 +158,18 @@ fun AirDropHost(
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun ShaderLayer(effect: AirDropEffect, clock: Animatable<Float, *>, content: @Composable () -> Unit) {
+private fun ShaderLayer(effect: AirDropEffect, run: Run, content: @Composable () -> Unit) {
     val shader = remember { RuntimeShader(AIRDROP_AGSL) }
     Box(
         Modifier.fillMaxSize().graphicsLayer {
             // The effect is removed when idle, so the screen is drawn normally the rest of the time.
             if (effect.active) {
                 shader.setFloatUniform("size", size.width, size.height)
-                shader.setFloatUniform("time", shaderTime(clock.value))
+                val frame = airDropFrame(run.clock.value)
+                shader.setFloatUniform("rise", frame.rise)
+                shader.setFloatUniform("energy", frame.energy)
+                shader.setFloatUniform("accumulate", frame.accumulate)
+                shader.setFloatUniform("wave", frame.wave)
                 renderEffect = RenderEffect.createRuntimeShaderEffect(shader, "image").asComposeRenderEffect()
             } else {
                 renderEffect = null
@@ -140,32 +177,33 @@ private fun ShaderLayer(effect: AirDropEffect, clock: Animatable<Float, *>, cont
         },
     ) {
         content()
-        if (effect.active) Spotlight(effect, clock)
+        if (effect.active) Spotlight(effect, run)
     }
 }
 
 @Composable
-private fun BlurLayer(effect: AirDropEffect, clock: Animatable<Float, *>, content: @Composable () -> Unit) {
-    val strength = if (effect.active) (1f + sin(shaderTime(clock.value))) * 0.5f else 0f
+private fun BlurLayer(effect: AirDropEffect, run: Run, content: @Composable () -> Unit) {
+    val frame = airDropFrame(run.clock.value)
+    val strength = if (effect.active) frame.energy * (1f - frame.wave) else 0f
     Box(Modifier.fillMaxSize().blur((18 * strength).dp)) {
         content()
-        if (effect.active) Spotlight(effect, clock)
+        if (effect.active) Spotlight(effect, run)
     }
 }
 
 /** The file card. It grows in at the start, is crossed by the wave with everything else, then fades out. */
 @Composable
-private fun BoxScope.Spotlight(effect: AirDropEffect, clock: Animatable<Float, *>) {
+private fun BoxScope.Spotlight(effect: AirDropEffect, run: Run) {
     Column(
         Modifier
             .align(Alignment.Center)
             .padding(horizontal = 56.dp)
             .graphicsLayer {
-                val enter = (clock.value / 0.06f).coerceIn(0f, 1f)
-                val exit = ((1f - clock.value) / 0.12f).coerceIn(0f, 1f)
+                val enter = (run.clock.value / 0.08f).coerceIn(0f, 1f)
                 val eased = 1f - (1f - enter) * (1f - enter) * (1f - enter)
                 scaleX = 0.88f + 0.12f * eased
                 scaleY = 0.88f + 0.12f * eased
+                val exit = ((1f - run.clock.value) / 0.14f).coerceIn(0f, 1f)
                 alpha = minOf(enter, exit)
             }
             .shadow(20.dp, RoundedCornerShape(24.dp))

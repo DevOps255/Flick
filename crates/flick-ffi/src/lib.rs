@@ -714,8 +714,32 @@ mod tests {
         .unwrap();
         let heard = ble_frame_decode(bytes).expect("a frame");
         engine.on_frame(heard, -50, 1_000).unwrap();
+        // One gesture on this phone is enough: the other phone did nothing.
         engine.on_own_gesture(1_500);
-        assert!(matches!(engine.poll(1_600), PairingResult::Pending));
+        assert!(matches!(engine.poll(1_600), PairingResult::Paired { .. }));
+        assert_eq!(engine.phones(1_800).len(), 1);
+    }
+
+    #[test]
+    fn a_gesture_heard_from_a_near_phone_pairs_through_the_ffi() {
+        let a = AnnouncementData {
+            fingerprint_prefix: vec![6; 8],
+            ipv4: vec![10, 0, 0, 3],
+            port: 1,
+            nonce: vec![0; 4],
+        };
+        let engine = PairingEngine::new();
+        engine
+            .on_frame(
+                BleFrameData {
+                    announcement: a.clone(),
+                    gesture: false,
+                    gesture_seq: 0,
+                },
+                -50,
+                1_000,
+            )
+            .unwrap();
         engine
             .on_frame(
                 BleFrameData {
@@ -724,11 +748,10 @@ mod tests {
                     gesture_seq: 1,
                 },
                 -50,
-                1_700,
+                1_300,
             )
             .unwrap();
-        assert!(matches!(engine.poll(1_800), PairingResult::Paired { .. }));
-        assert_eq!(engine.phones(1_800).len(), 1);
+        assert!(matches!(engine.poll(1_400), PairingResult::Paired { .. }));
     }
 
     #[test]

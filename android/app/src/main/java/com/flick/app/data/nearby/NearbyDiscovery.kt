@@ -112,6 +112,9 @@ class NearbyDiscovery @Inject constructor(
         var paired = false
         var associated = false
 
+        /** When the pairing happened, so the animation does not wait for a slow link forever. */
+        var pairedAtMs = 0L
+
         /** Answers of this phone that failed while both phones looked to be on one network. */
         var sameNetworkFailures = 0
 
@@ -325,6 +328,7 @@ class NearbyDiscovery @Inject constructor(
             is PairingResult.Paired -> {
                 val h = heard[result.phone.id]
                 if (h != null) {
+                    if (!h.paired) h.pairedAtMs = now
                     h.paired = true
                     update { it.copy(hint = null) }
                 }
@@ -333,10 +337,15 @@ class NearbyDiscovery @Inject constructor(
             PairingResult.Pending -> Unit
         }
 
+        // Only the closest phone is linked ahead of time. Linking every phone in the room would use the radio for nothing.
+        val closest = heard.maxByOrNull { it.value.rssi }?.key
         for ((id, h) in heard) {
-            // A phone very near is linked before the gesture, so the link is ready when it happens.
-            if (h.paired || h.rssi >= PREWARM_RSSI) connect(running, id, job)
-            if (h.paired && h.ready && !h.associated) {
+            // The link is built before the gesture, so it is already up when the phones are brought together.
+            if (h.paired || (id == closest && h.rssi >= PREWARM_RSSI)) connect(running, id, job)
+            // Both phones pair at about the same moment, so both start the animation together. A link that is
+            // slow does not hold it back for more than a moment.
+            val waitedLongEnough = h.paired && now - h.pairedAtMs >= ASSOCIATE_AFTER_MS
+            if (h.paired && !h.associated && (h.ready || waitedLongEnough)) {
                 h.associated = true
                 _associations.tryEmit(h.toPeer(id))
             }
@@ -468,8 +477,14 @@ class NearbyDiscovery @Inject constructor(
         const val TICK_MS = 100L
         const val GESTURE_SHOWN_MS = 2_500L
 
-        /** Signal strength above which a phone is close enough, about a metre, to link it before any gesture. */
-        const val PREWARM_RSSI = -62f
+        /**
+         * Signal strength above which the closest phone is linked before any gesture, about three metres.
+         * Building a Wi-Fi Direct group takes seconds, so it must start while the phones are still being brought together.
+         */
+        const val PREWARM_RSSI = -75f
+
+        /** The animation starts at most this long after the pairing, even when the link is not ready yet. */
+        const val ASSOCIATE_AFTER_MS = 1_200L
         const val LINK_RETRY_MS = 3_000L
         const val DESCRIBE_RETRY_MS = 1_500L
 

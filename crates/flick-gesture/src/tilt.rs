@@ -20,7 +20,8 @@ pub struct GyroSample {
 pub struct TiltConfig {
     /// How far back the turn is added up, in milliseconds.
     pub window_ms: u64,
-    /// Smallest net turn, in radians, that counts. 0.45 rad is about 26 degrees.
+    /// Smallest net turn, in radians, that counts. 0.35 rad is about 20 degrees. A phone brought
+    /// toward another one barely turns, so a small turn must be enough. Shaking stays under it.
     pub min_angle: f32,
     /// The turn must reach at least this speed, in rad/s. Slow drifting is not a gesture.
     pub min_peak_rate: f32,
@@ -33,11 +34,11 @@ pub struct TiltConfig {
 impl Default for TiltConfig {
     fn default() -> Self {
         Self {
-            window_ms: 700,
-            min_angle: 0.45,
-            min_peak_rate: 1.0,
-            max_off_axis: 0.7,
-            cooldown_ms: 1_500,
+            window_ms: 600,
+            min_angle: 0.35,
+            min_peak_rate: 0.8,
+            max_off_axis: 0.8,
+            cooldown_ms: 1_000,
         }
     }
 }
@@ -82,6 +83,8 @@ impl TiltDetector {
             .last_fired
             .is_some_and(|t| sample.t_ms - t < self.cfg.cooldown_ms)
         {
+            // A turn made during the cooldown is forgotten, so it cannot fire the moment the cooldown ends.
+            self.window.clear();
             return None;
         }
         let mut net = [0f32; 3];
@@ -163,7 +166,7 @@ mod tests {
         let tilts = run(&mut d, 0, &rates);
         assert_eq!(tilts.len(), 1);
         assert_eq!(tilts[0].axis, 0);
-        assert!(tilts[0].angle >= 0.45);
+        assert!(tilts[0].angle >= 0.35);
     }
 
     #[test]

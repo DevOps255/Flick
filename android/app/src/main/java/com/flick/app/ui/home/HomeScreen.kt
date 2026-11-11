@@ -53,8 +53,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.SolidColor
+import com.flick.app.ui.theme.Lavender
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import com.flick.app.R
 import com.flick.app.core.StorageSpace
 import com.flick.app.data.db.FileRecordEntity
@@ -77,7 +80,7 @@ import com.flick.app.ui.theme.pressable
  * whole line below with: private val HeaderBackground: Brush = SolidColor(Lavender)
  * (import androidx.compose.ui.graphics.SolidColor and com.flick.app.ui.theme.Lavender).
  */
-private val HeaderBackground: Brush = Brush.verticalGradient(listOf(Sun, Cream))
+private val HeaderBackground: Brush = SolidColor(Lavender)
 
 /**
  * The first screen: the name, two big buttons, the free space and the files that came or went recently.

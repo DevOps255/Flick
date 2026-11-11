@@ -1,9 +1,16 @@
 //! Decides which nearby phone the user means.
 //!
-//! Phones advertise over Bluetooth all the time. Pairing needs two things at once: the user made
-//! the pairing gesture here, and that phone made it too, within a couple of seconds. Of the phones
-//! that did, the closest one wins. If two are about as close, the answer is ambiguous and nothing
-//! is paired, rather than pairing the wrong phone.
+//! Phones advertise over Bluetooth all the time. One phone is enough to start a pairing, in three ways:
+//!
+//! 1. The user made the pairing gesture here. The closest phone that is near enough is paired, even if
+//!    its owner did nothing.
+//! 2. A phone that is near enough made the gesture. This phone pairs back with it, so both phones start
+//!    together even though only one of them was moved.
+//! 3. A phone is held against this one. A signal as strong as touching phones give, held for a short
+//!    moment, pairs without any gesture, like two iPhones brought top to top.
+//!
+//! If two phones are about as close, the answer is ambiguous and nothing is paired, rather than pairing
+//! the wrong phone. A phone that made the gesture counts as closer than one that did not.
 //!
 //! Distance comes from the signal strength. It is noisy, so each phone's readings pass through a
 //! Kalman filter, and the distance is a rough estimate from a path loss model, not a measurement.
@@ -17,8 +24,17 @@ use std::collections::HashMap;
 const RSSI_AT_ONE_METRE: f32 = -59.0;
 /// How fast the signal fades with distance. 2 is open air, indoors it is higher.
 const PATH_LOSS_EXPONENT: f32 = 2.2;
-/// A gesture on one phone counts for the other if they happen within this many milliseconds.
+/// A gesture made here waits this many milliseconds for a phone to be near, and counts for a phone that made one.
 const GESTURE_WINDOW_MS: u64 = 2_500;
+/// A gesture made on the other phone is answered within this many milliseconds, or it is old news.
+const HEARD_GESTURE_WINDOW_MS: u64 = 1_500;
+/// A phone weaker than this, about two metres, is too far to be the one the user means.
+const NEAR_RSSI_DBM: f32 = -65.0;
+/// A phone this strong is touching. Held for [`CONTACT_HOLD_MS`] it pairs without any gesture.
+const CONTACT_RSSI_DBM: f32 = -52.0;
+const CONTACT_HOLD_MS: u64 = 400;
+/// A phone must fall below this before a contact can pair again, so phones lying side by side do not pair in a loop.
+const CONTACT_REARM_RSSI_DBM: f32 = -62.0;
 /// A phone not heard for this long is no longer nearby.
 const SEEN_WITHIN_MS: u64 = 3_000;
 /// The best phone must beat the second by this many dB, about 1.6 times closer, or the pairing is ambiguous.
@@ -109,6 +125,12 @@ struct PeerState {
     last_seen_ms: u64,
     last_seq: u8,
     gesture_seen_ms: Option<u64>,
+    /// The gesture time already answered, so one gesture pairs once.
+    gesture_answered_ms: Option<u64>,
+    /// Since when the signal has been as strong as touching phones give.
+    contact_since_ms: Option<u64>,
+    /// True once a contact paired, until the phone moves away.
+    contact_used: bool,
 }
 
 /// Follows the phones nearby and decides when the user paired with one.
@@ -134,6 +156,9 @@ impl Pairing {
             last_seen_ms: now_ms,
             last_seq: frame.gesture_seq,
             gesture_seen_ms: None,
+            gesture_answered_ms: None,
+            contact_since_ms: None,
+            contact_used: false,
         });
         peer.announcement = frame.announcement;
         peer.smoothed = peer.rssi.update(rssi_dbm as f32);
@@ -163,39 +188,131 @@ impl Pairing {
         views
     }
 
-    /// Checks whether the user paired with a phone. A pairing is reported once.
+    /// Checks whether a pairing happened. A pairing is reported once.
     pub fn poll(&mut self, now_ms: u64) -> Outcome {
-        let Some(own) = self.own_gesture_ms else {
-            return Outcome::Pending;
-        };
-        if now_ms.saturating_sub(own) > GESTURE_WINDOW_MS {
-            self.own_gesture_ms = None;
-            return Outcome::Pending;
+        self.track_contacts(now_ms);
+
+        // 1. The user made the gesture here. The closest near phone is the one meant.
+        if let Some(own) = self.own_gesture_ms {
+            if now_ms.saturating_sub(own) > GESTURE_WINDOW_MS {
+                self.own_gesture_ms = None;
+            } else {
+                match self.decide(now_ms, own, |_| true) {
+                    Decision::Paired(key) => {
+                        self.own_gesture_ms = None;
+                        return self.paired(key);
+                    }
+                    Decision::Ambiguous => return Outcome::Ambiguous,
+                    Decision::Nobody => return Outcome::Pending,
+                }
+            }
         }
-        let mut candidates: Vec<PeerView> = self
+
+        // 2. A near phone made the gesture. Pair back, so both phones start together.
+        let heard = self
+            .peers
+            .iter()
+            .filter(|(_, p)| p.gesture_answered_ms != p.gesture_seen_ms)
+            .filter_map(|(_, p)| p.gesture_seen_ms)
+            .filter(|g| now_ms.saturating_sub(*g) <= HEARD_GESTURE_WINDOW_MS)
+            .max();
+        if let Some(gesture) = heard {
+            if let Decision::Paired(key) =
+                self.decide(now_ms, gesture, |p| p.gesture_seen_ms == Some(gesture))
+            {
+                return self.paired(key);
+            }
+        }
+
+        // 3. A phone is held against this one.
+        let touching: Vec<[u8; 8]> = self
+            .peers
+            .iter()
+            .filter(|(_, p)| !p.contact_used)
+            .filter(|(_, p)| {
+                p.contact_since_ms
+                    .is_some_and(|since| now_ms.saturating_sub(since) >= CONTACT_HOLD_MS)
+            })
+            .map(|(key, _)| *key)
+            .collect();
+        if !touching.is_empty() {
+            if let Decision::Paired(key) = self.decide(now_ms, now_ms, |_| true) {
+                if touching.contains(&key) {
+                    return self.paired(key);
+                }
+            }
+        }
+        Outcome::Pending
+    }
+
+    /// Follows which phones are touching this one.
+    fn track_contacts(&mut self, now_ms: u64) {
+        for p in self.peers.values_mut() {
+            if p.smoothed >= CONTACT_RSSI_DBM
+                && now_ms.saturating_sub(p.last_seen_ms) <= SEEN_WITHIN_MS
+            {
+                p.contact_since_ms.get_or_insert(now_ms);
+            } else if p.smoothed < CONTACT_REARM_RSSI_DBM
+                || now_ms.saturating_sub(p.last_seen_ms) > SEEN_WITHIN_MS
+            {
+                p.contact_since_ms = None;
+                p.contact_used = false;
+            }
+        }
+    }
+
+    /// Picks the phone meant among those near, heard recently, and accepted by `allowed`.
+    /// A phone that made a gesture around `reference_ms` counts as closer by the margin.
+    fn decide(
+        &self,
+        now_ms: u64,
+        reference_ms: u64,
+        allowed: impl Fn(&PeerState) -> bool,
+    ) -> Decision {
+        let mut near: Vec<([u8; 8], f32, bool)> = self
             .peers
             .iter()
             .filter(|(_, p)| now_ms.saturating_sub(p.last_seen_ms) <= SEEN_WITHIN_MS)
-            .filter(|(_, p)| {
-                p.gesture_seen_ms
-                    .is_some_and(|g| g.abs_diff(own) <= GESTURE_WINDOW_MS)
+            .filter(|(_, p)| p.smoothed >= NEAR_RSSI_DBM)
+            .map(|(key, p)| {
+                let gestured = p
+                    .gesture_seen_ms
+                    .is_some_and(|g| g.abs_diff(reference_ms) <= GESTURE_WINDOW_MS);
+                (
+                    *key,
+                    p.smoothed + if gestured { MARGIN_DB } else { 0.0 },
+                    allowed(p),
+                )
             })
-            .map(|(key, p)| view(key, p))
             .collect();
-        candidates.sort_by(|a, b| b.rssi_dbm.total_cmp(&a.rssi_dbm));
-        match candidates.as_slice() {
-            [] => Outcome::Pending,
-            [only] => {
-                self.own_gesture_ms = None;
-                Outcome::Paired(only.clone())
+        near.sort_by(|a, b| b.1.total_cmp(&a.1));
+        match near.as_slice() {
+            [] => Decision::Nobody,
+            [(key, _, true)] => Decision::Paired(*key),
+            [(_, _, false)] => Decision::Nobody,
+            [(key, best, true), (_, second, _), ..] if best - second >= MARGIN_DB => {
+                Decision::Paired(*key)
             }
-            [best, second, ..] if best.rssi_dbm - second.rssi_dbm >= MARGIN_DB => {
-                self.own_gesture_ms = None;
-                Outcome::Paired(best.clone())
-            }
-            _ => Outcome::Ambiguous,
+            [(_, _, false), ..] => Decision::Nobody,
+            _ => Decision::Ambiguous,
         }
     }
+
+    /// Marks a pairing as reported and builds its answer.
+    fn paired(&mut self, key: [u8; 8]) -> Outcome {
+        let Some(peer) = self.peers.get_mut(&key) else {
+            return Outcome::Pending;
+        };
+        peer.gesture_answered_ms = peer.gesture_seen_ms;
+        peer.contact_used = true;
+        Outcome::Paired(view(&key, peer))
+    }
+}
+
+enum Decision {
+    Nobody,
+    Ambiguous,
+    Paired([u8; 8]),
 }
 
 fn view(key: &[u8; 8], p: &PeerState) -> PeerView {
@@ -254,17 +371,55 @@ mod tests {
     }
 
     #[test]
-    fn both_gestures_pair_the_phones() {
+    fn one_gesture_here_pairs_the_closest_phone() {
         let mut p = Pairing::new();
         p.on_frame(&frame(1, false, 0), -50, 1_000);
         p.on_own_gesture(2_000);
         assert!(
-            matches!(p.poll(2_100), Outcome::Pending),
-            "the other phone has not gestured"
+            matches!(p.poll(2_100), Outcome::Paired(v) if v.id == "0101010101010101"),
+            "the other phone did nothing and is still paired"
         );
-        p.on_frame(&frame(1, true, 1), -50, 2_300);
-        assert!(matches!(p.poll(2_400), Outcome::Paired(v) if v.id == "0101010101010101"));
-        assert!(matches!(p.poll(2_500), Outcome::Pending), "reported once");
+        assert!(matches!(p.poll(2_200), Outcome::Pending), "reported once");
+    }
+
+    #[test]
+    fn a_gesture_waits_for_the_phone_to_be_heard() {
+        let mut p = Pairing::new();
+        p.on_own_gesture(2_000);
+        assert!(matches!(p.poll(2_100), Outcome::Pending));
+        p.on_frame(&frame(1, false, 0), -50, 2_300);
+        assert!(matches!(p.poll(2_400), Outcome::Paired(_)));
+    }
+
+    #[test]
+    fn a_phone_that_is_too_far_is_not_paired() {
+        let mut p = Pairing::new();
+        p.on_frame(&frame(1, false, 0), -80, 1_000);
+        p.on_own_gesture(1_100);
+        assert!(matches!(p.poll(1_200), Outcome::Pending));
+    }
+
+    #[test]
+    fn a_near_phone_that_gestured_pairs_this_phone_back() {
+        let mut p = Pairing::new();
+        p.on_frame(&frame(1, false, 0), -50, 1_000);
+        p.on_frame(&frame(1, true, 1), -50, 1_300);
+        assert!(
+            matches!(p.poll(1_400), Outcome::Paired(v) if v.id == "0101010101010101"),
+            "nothing was done on this phone"
+        );
+        assert!(
+            matches!(p.poll(1_500), Outcome::Pending),
+            "one gesture pairs once"
+        );
+    }
+
+    #[test]
+    fn a_far_phone_that_gestured_does_not_pair_this_phone() {
+        let mut p = Pairing::new();
+        p.on_frame(&frame(1, false, 0), -85, 1_000);
+        p.on_frame(&frame(1, true, 1), -85, 1_300);
+        assert!(matches!(p.poll(1_400), Outcome::Pending));
     }
 
     #[test]
@@ -277,24 +432,70 @@ mod tests {
     }
 
     #[test]
-    fn a_gesture_far_in_the_past_does_not_count() {
-        let mut p = Pairing::new();
-        p.on_frame(&frame(1, true, 1), -50, 1_000);
-        p.on_own_gesture(10_000);
-        p.on_frame(&frame(1, false, 1), -50, 10_100);
-        assert!(matches!(p.poll(10_200), Outcome::Pending));
-    }
-
-    #[test]
     fn a_flag_that_stays_up_is_one_gesture_not_many() {
         let mut p = Pairing::new();
         p.on_frame(&frame(1, true, 3), -50, 1_000);
+        assert!(matches!(p.poll(1_100), Outcome::Paired(_)));
         p.on_frame(&frame(1, true, 3), -50, 5_000);
-        p.on_own_gesture(5_100);
         assert!(
-            matches!(p.poll(5_200), Outcome::Pending),
-            "the gesture was at 1 s, too long ago"
+            matches!(p.poll(5_100), Outcome::Pending),
+            "the flag is still up but the gesture counter did not move"
         );
+    }
+
+    #[test]
+    fn an_old_gesture_of_the_other_phone_is_not_answered() {
+        let mut p = Pairing::new();
+        p.on_frame(&frame(1, true, 1), -50, 1_000);
+        assert!(matches!(p.poll(4_000), Outcome::Pending));
+    }
+
+    #[test]
+    fn a_phone_held_against_this_one_pairs_after_a_short_moment() {
+        let mut p = Pairing::new();
+        for t in (1_000..1_300).step_by(100) {
+            p.on_frame(&frame(1, false, 0), -45, t);
+            assert!(
+                matches!(p.poll(t), Outcome::Pending),
+                "not yet held long enough at {t}"
+            );
+        }
+        p.on_frame(&frame(1, false, 0), -45, 1_500);
+        assert!(matches!(p.poll(1_500), Outcome::Paired(v) if v.id == "0101010101010101"));
+        p.on_frame(&frame(1, false, 0), -45, 2_500);
+        assert!(
+            matches!(p.poll(2_500), Outcome::Pending),
+            "phones lying side by side do not pair in a loop"
+        );
+    }
+
+    #[test]
+    fn a_phone_that_moved_away_and_came_back_pairs_again() {
+        let mut p = Pairing::new();
+        for t in (1_000..=1_600).step_by(100) {
+            p.on_frame(&frame(1, false, 0), -45, t);
+            p.poll(t);
+        }
+        for t in (2_000..=3_000).step_by(100) {
+            p.on_frame(&frame(1, false, 0), -75, t);
+            p.poll(t);
+        }
+        let mut paired = false;
+        for t in (4_000..=6_500).step_by(100) {
+            p.on_frame(&frame(1, false, 0), -45, t);
+            paired |= matches!(p.poll(t), Outcome::Paired(_));
+        }
+        assert!(paired);
+    }
+
+    #[test]
+    fn two_phones_touching_are_not_paired_by_contact() {
+        let mut p = Pairing::new();
+        for t in (1_000..=2_000).step_by(100) {
+            p.on_frame(&frame(1, false, 0), -45, t);
+            p.on_frame(&frame(2, false, 0), -46, t);
+            assert!(!matches!(p.poll(t), Outcome::Paired(_)), "ambiguous at {t}");
+        }
     }
 
     #[test]

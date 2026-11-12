@@ -73,8 +73,8 @@ half4 main(float2 fragCoord) {
     // 1 ahead of the front, where the effect is still on. 0 behind it, where the screen is clean.
     float ahead = smoothstep(front - 0.30, front, d);
 
-    // The glow rises from below the screen to just under the notch.
-    float glowY = -0.35 + 1.31 * rise;
+    // The glow rises from the bottom edge of the screen to just under the notch.
+    float glowY = -0.12 + 1.08 * rise;
 
     // Before the strike the picture bends toward the glow.
     float bend = exp(-sq((st.y - glowY) / 0.30));
@@ -101,9 +101,11 @@ half4 main(float2 fragCoord) {
     // The glow goes from pink on the left to blue on the right.
     float side = smoothstep(-0.4, 0.4, px);
     float3 glowColour = float3(1.0 - 0.55 * side, 0.45 + 0.20 * side, 0.70 + 0.30 * side);
-    float body = exp(-(sq(px / 0.62) + sq((st.y - glowY) / 0.38)));
+    float body = exp(-(sq(px / 0.70) + sq((st.y - glowY) / 0.45)));
+    // A bright lip just above the glow makes its climb easy to follow. It fades once the glow has gathered.
+    float crest = exp(-sq((st.y - (glowY + 0.20)) / 0.05)) * exp(-sq(px / 0.8)) * 0.30 * (1.0 - accumulate) * energy;
     float notch = exp(-(sq(px / 0.40) + sq((st.y - 1.0) / 0.14))) * accumulate;
-    float light = (body * energy * 0.9 + notch * 1.2) * ahead;
+    float light = (body * energy * 0.95 + crest + notch * 1.2) * ahead;
     colour = mix(colour, glowColour, clamp(light, 0.0, 1.0) * 0.85);
 
     // The bright band at the front of the wave.

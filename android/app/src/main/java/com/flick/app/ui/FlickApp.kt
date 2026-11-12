@@ -96,7 +96,10 @@ fun FlickApp(appViewModel: AppViewModel = hiltViewModel()) {
             if (files.isEmpty()) {
                 effect.play(title = "Connected to ${peer.name}", subtitle = "Ready to receive")
             } else {
-                effect.play(title = files.first().name + if (files.size > 1) " and ${files.size - 1} more" else "", subtitle = "Ready to send to ${peer.name}")
+                effect.play(title = files.first().name + if (files.size > 1) " and ${files.size - 1} more" else "", subtitle = "Sending to ${peer.name}")
+                // The files were chosen before the phones met: bringing them together is the whole gesture.
+                // The send starts now, while the effect plays and the phones stay together.
+                if (nav.currentDestination?.hasRoute<TransferRoute>() != true) nav.navigate(TransferRoute(peer.id))
             }
         }
     }

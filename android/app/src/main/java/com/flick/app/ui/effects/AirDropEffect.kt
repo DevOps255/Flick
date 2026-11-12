@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.flick.app.ui.theme.Accent
@@ -83,13 +84,13 @@ private const val COOLDOWN_MS = 1_500L
 val LocalAirDrop = compositionLocalOf { AirDropEffect() }
 
 /** The glow rises. */
-internal const val RISE_MS = 900
+internal const val RISE_MS = 1_400
 
 /** The glow gathers at the notch and keeps getting brighter. */
-internal const val ACCUMULATE_MS = 700
+internal const val ACCUMULATE_MS = 600
 
 /** The wave strikes down from the notch and wipes the effect away behind it. */
-internal const val STRIKE_MS = 500
+internal const val STRIKE_MS = 450
 
 internal const val TOTAL_MS = RISE_MS + ACCUMULATE_MS + STRIKE_MS
 
@@ -108,9 +109,11 @@ private fun smoothStep(from: Float, to: Float, x: Float): Float {
 internal fun airDropFrame(clock: Float): AirDropFrame {
     val ms = clock * TOTAL_MS
     val strike = ((ms - (RISE_MS + ACCUMULATE_MS)) / STRIKE_MS).coerceIn(0f, 1f)
+    val climb = (ms / RISE_MS).coerceIn(0f, 1f)
     return AirDropFrame(
-        rise = smoothStep(0f, RISE_MS.toFloat(), ms),
-        energy = smoothStep(0f, (RISE_MS + ACCUMULATE_MS).toFloat(), ms),
+        // The glow moves at a steady pace and slows only when it reaches the notch, so the climb is easy to follow.
+        rise = 1f - (1f - climb).pow(1.6f),
+        energy = smoothStep(0f, (RISE_MS + ACCUMULATE_MS).toFloat(), ms).pow(0.75f),
         accumulate = smoothStep(RISE_MS * 0.6f, (RISE_MS + ACCUMULATE_MS).toFloat(), ms),
         wave = strike.pow(2.2f),
     )
@@ -136,8 +139,10 @@ fun AirDropHost(
     content: @Composable () -> Unit,
 ) {
     val run = remember { Run() }
+    val context = LocalContext.current
     LaunchedEffect(effect.request) {
         if (effect.request == 0) return@LaunchedEffect
+        vibrate(context, airDropHaptics())
         run.clock.snapTo(0f)
         run.clock.animateTo(1f, tween(TOTAL_MS, easing = LinearEasing))
         effect.active = false

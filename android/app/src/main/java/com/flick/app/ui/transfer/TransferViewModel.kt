@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class TransferUiState(
     /** One entry per recipient. */
@@ -47,7 +48,10 @@ class TransferViewModel @Inject constructor(
     init {
         manager.reset()
         viewModelScope.launch {
-            val nearby = discovery.peers.first()
+            // The link may still be forming when the phones have just met, so wait a moment for it.
+            val nearby = withTimeoutOrNull(READY_WAIT_MS) {
+                discovery.peers.first { list -> peerIds.all { id -> list.firstOrNull { it.id == id }?.ready == true } }
+            } ?: discovery.peers.first()
             val peers = peerIds.mapNotNull { id -> nearby.firstOrNull { it.id == id } }
             val files = selection.files.value
             when {
@@ -59,4 +63,9 @@ class TransferViewModel @Inject constructor(
     }
 
     fun cancel() = manager.cancel()
+
+    private companion object {
+        /** How long a send waits for the link of a phone that was just paired. */
+        const val READY_WAIT_MS = 8_000L
+    }
 }

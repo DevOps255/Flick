@@ -30,6 +30,9 @@ use tokio_util::sync::CancellationToken;
 /// How long a heard announcement allows its sender to upload.
 const TRUST_WINDOW: Duration = Duration::from_secs(60);
 
+/// The largest profile picture that is accepted from another device.
+const MAX_AVATAR_BYTES: usize = 64 * 1024;
+
 /// Files larger than this are sent without a SHA-256 announced up front. Smaller ones are hashed first.
 const HASH_LIMIT: u64 = 256 * 1024 * 1024;
 
@@ -354,6 +357,31 @@ impl Node {
             .await
             .map_err(|e| anyhow!("could not reach the other device: {e}"))?;
         Ok(info.alias)
+    }
+
+    /// Sets the profile picture that other devices can fetch, a small JPEG. An empty value removes it.
+    pub fn set_avatar(&self, jpeg: Vec<u8>) {
+        localsend::http::server::avatar::set(jpeg);
+    }
+
+    /// Fetches the profile picture of the device at `target`, if it has one. The certificate is checked like in
+    /// [`Node::send`].
+    pub async fn fetch_avatar(&self, target: &Target) -> Result<Option<Vec<u8>>> {
+        let client = LsHttpClientV2::try_new(
+            &self.identity.key_pem,
+            &self.identity.cert_pem,
+            Some(target.fingerprint_prefix.clone()),
+            Some(Duration::from_secs(3)),
+        )?;
+        client
+            .flick_avatar(
+                ProtocolType::Https,
+                &target.host,
+                target.port,
+                MAX_AVATAR_BYTES,
+            )
+            .await
+            .map_err(|e| anyhow!("could not fetch the picture: {e}"))
     }
 
     fn register_dto(&self) -> RegisterDtoV2 {

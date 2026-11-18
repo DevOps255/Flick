@@ -104,6 +104,9 @@ class NearbyDiscovery @Inject constructor(
         val firstSeenMs: Long,
     ) {
         var name: String? = null
+
+        /** The profile photo of the phone, a small JPEG, or null when it has none. */
+        var avatar: ByteArray? = null
         var ready = false
         var note: String? = null
         var plan: LinkPlanData? = null
@@ -328,7 +331,11 @@ class NearbyDiscovery @Inject constructor(
             is PairingResult.Paired -> {
                 val h = heard[result.phone.id]
                 if (h != null) {
-                    if (!h.paired) h.pairedAtMs = now
+                    // A new gesture after a while is a new meeting, so the effect plays again.
+                    if (!h.paired || now - h.pairedAtMs >= REARM_MS) {
+                        h.pairedAtMs = now
+                        h.associated = false
+                    }
                     h.paired = true
                     update { it.copy(hint = null) }
                 }
@@ -427,6 +434,8 @@ class NearbyDiscovery @Inject constructor(
                 h.note = null
                 val took = SystemClock.elapsedRealtime() - h.firstSeenMs
                 update { it.copy(lastReadyMs = took) }
+                // The photo comes after the phone is ready, so it never delays a transfer.
+                h.avatar = runCatching { running.fetchAvatar(h.reachable()) }.getOrNull()
             } else {
                 h.retryAfterMs = SystemClock.elapsedRealtime() + DESCRIBE_RETRY_MS
                 useGroupWhenNetworkIsFalse(h)
@@ -461,6 +470,7 @@ class NearbyDiscovery @Inject constructor(
         proximity = proximity,
         ready = ready,
         note = note,
+        avatar = avatar,
     )
 
     private fun publish() {
@@ -482,6 +492,9 @@ class NearbyDiscovery @Inject constructor(
          * Building a Wi-Fi Direct group takes seconds, so it must start while the phones are still being brought together.
          */
         const val PREWARM_RSSI = -75f
+
+        /** A gesture this long after the last pairing starts a new one. */
+        const val REARM_MS = 3_000L
 
         /** The animation starts at most this long after the pairing, even when the link is not ready yet. */
         const val ASSOCIATE_AFTER_MS = 1_200L

@@ -622,6 +622,23 @@ impl FlickNode {
             .map_err(failed)
     }
 
+    /// Sets the profile picture that other devices can fetch: a small JPEG. An empty value removes it.
+    pub fn set_avatar(&self, jpeg: Vec<u8>) {
+        self.inner.set_avatar(jpeg);
+    }
+
+    /// The profile picture of another device, or nothing when it has none. Fails if its certificate is not the announced one.
+    pub async fn fetch_avatar(
+        &self,
+        peer: AnnouncementData,
+    ) -> Result<Option<Vec<u8>>, FlickError> {
+        let a: flick_proto::Announcement = peer.try_into()?;
+        self.inner
+            .fetch_avatar(&flick_core::target_from(&a))
+            .await
+            .map_err(failed)
+    }
+
     /// Stops every send in progress.
     pub fn cancel_send(&self) {
         self.cancel.lock().unwrap().cancel();

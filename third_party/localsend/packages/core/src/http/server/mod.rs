@@ -1,3 +1,4 @@
+pub mod avatar;
 pub mod common;
 mod connection_limit;
 pub mod internal;
@@ -650,6 +651,14 @@ async fn handle_request_inner(mut req: Request<Incoming>) -> Result<Response<Box
             }
 
             Ok(v2::info(state).await?.into_response())
+        }
+        // Flick addition: the profile picture of this device
+        (&Method::GET, "/api/localsend/v2/flick-avatar") => {
+            if !v2_enabled {
+                return Err(AppError::Status(StatusCode::NOT_FOUND));
+            }
+
+            Ok(avatar::response())
         }
         (&Method::POST, "/api/localsend/v2/prepare-upload") => {
             if !v2_enabled {

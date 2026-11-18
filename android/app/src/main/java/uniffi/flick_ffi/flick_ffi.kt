@@ -833,6 +833,10 @@ internal open class UniffiVTableCallbackInterfaceSendObserver(
 
 
 
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -872,10 +876,14 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_flick_ffi_fn_method_flicknode_describe(`ptr`: Pointer,`peer`: RustBuffer.ByValue,
     ): Long
+    fun uniffi_flick_ffi_fn_method_flicknode_fetch_avatar(`ptr`: Pointer,`peer`: RustBuffer.ByValue,
+    ): Long
     fun uniffi_flick_ffi_fn_method_flicknode_port(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
     fun uniffi_flick_ffi_fn_method_flicknode_send(`ptr`: Pointer,`to`: RustBuffer.ByValue,`files`: RustBuffer.ByValue,`observer`: Pointer,
     ): Long
+    fun uniffi_flick_ffi_fn_method_flicknode_set_avatar(`ptr`: Pointer,`jpeg`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_flick_ffi_fn_method_flicknode_set_trusted(`ptr`: Pointer,`announcements`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_flick_ffi_fn_method_flicknode_trust(`ptr`: Pointer,`announcement`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1084,9 +1092,13 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_flick_ffi_checksum_method_flicknode_describe(
     ): Short
+    fun uniffi_flick_ffi_checksum_method_flicknode_fetch_avatar(
+    ): Short
     fun uniffi_flick_ffi_checksum_method_flicknode_port(
     ): Short
     fun uniffi_flick_ffi_checksum_method_flicknode_send(
+    ): Short
+    fun uniffi_flick_ffi_checksum_method_flicknode_set_avatar(
     ): Short
     fun uniffi_flick_ffi_checksum_method_flicknode_set_trusted(
     ): Short
@@ -1174,10 +1186,16 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_describe() != 10176.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_flick_ffi_checksum_method_flicknode_fetch_avatar() != 3703.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_port() != 43477.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_send() != 42394.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_flick_ffi_checksum_method_flicknode_set_avatar() != 16241.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_flick_ffi_checksum_method_flicknode_set_trusted() != 3390.toShort()) {
@@ -1985,12 +2003,22 @@ public interface FlickNodeInterface {
      */
     suspend fun `describe`(`peer`: AnnouncementData): kotlin.String
     
+    /**
+     * The profile picture of another device, or nothing when it has none. Fails if its certificate is not the announced one.
+     */
+    suspend fun `fetchAvatar`(`peer`: AnnouncementData): kotlin.ByteArray?
+    
     fun `port`(): kotlin.UShort
     
     /**
      * Sends files to the device behind a heard announcement. Returns when all arrived.
      */
     suspend fun `send`(`to`: AnnouncementData, `files`: List<OutgoingFileData>, `observer`: SendObserver)
+    
+    /**
+     * Sets the profile picture that other devices can fetch: a small JPEG. An empty value removes it.
+     */
+    fun `setAvatar`(`jpeg`: kotlin.ByteArray)
     
     /**
      * Replaces the list of phones allowed to send here. An empty list refuses everybody.
@@ -2143,6 +2171,30 @@ open class FlickNode: Disposable, AutoCloseable, FlickNodeInterface {
     )
     }
 
+    
+    /**
+     * The profile picture of another device, or nothing when it has none. Fails if its certificate is not the announced one.
+     */
+    @Throws(FlickException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `fetchAvatar`(`peer`: AnnouncementData) : kotlin.ByteArray? {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_flicknode_fetch_avatar(
+                thisPtr,
+                FfiConverterTypeAnnouncementData.lower(`peer`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_flick_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_flick_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_flick_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterOptionalByteArray.lift(it) },
+        // Error FFI converter
+        FlickException.ErrorHandler,
+    )
+    }
+
     override fun `port`(): kotlin.UShort {
             return FfiConverterUShort.lift(
     callWithPointer {
@@ -2179,6 +2231,20 @@ open class FlickNode: Disposable, AutoCloseable, FlickNodeInterface {
         FlickException.ErrorHandler,
     )
     }
+
+    
+    /**
+     * Sets the profile picture that other devices can fetch: a small JPEG. An empty value removes it.
+     */override fun `setAvatar`(`jpeg`: kotlin.ByteArray)
+        = 
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_flick_ffi_fn_method_flicknode_set_avatar(
+        it, FfiConverterByteArray.lower(`jpeg`),_status)
+}
+    }
+    
+    
 
     
     /**
@@ -4417,6 +4483,38 @@ public object FfiConverterTypeTransferEvent : FfiConverterRustBuffer<TransferEve
 }
 
 
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
+        }
+    }
+}
 
 
 

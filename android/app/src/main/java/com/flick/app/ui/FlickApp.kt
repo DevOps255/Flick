@@ -92,14 +92,19 @@ fun FlickApp(appViewModel: AppViewModel = hiltViewModel()) {
     // The file stands out in the middle of the screen while the background blurs.
     LaunchedEffect(Unit) {
         appViewModel.associations.collect { peer ->
+            // While a file moves, a gesture does nothing: no effect and no second send.
+            if (appViewModel.transferBusy()) return@collect
             val files = appViewModel.selectedFiles.value
-            if (files.isEmpty()) {
-                effect.play(title = "Connected to ${peer.name}", subtitle = "Ready to receive")
-            } else {
+            // A send starts by itself only from the Nearby screen. From any other screen the phones just pair, so
+            // choosing another file in the menu is never interrupted by a gesture.
+            val onNearbyNow = nav.currentDestination?.hasRoute<NearbyRoute>() == true
+            if (files.isNotEmpty() && onNearbyNow) {
                 effect.play(title = files.first().name + if (files.size > 1) " and ${files.size - 1} more" else "", subtitle = "Sending to ${peer.name}")
                 // The files were chosen before the phones met: bringing them together is the whole gesture.
                 // The send starts now, while the effect plays and the phones stay together.
-                if (nav.currentDestination?.hasRoute<TransferRoute>() != true) nav.navigate(TransferRoute(peer.id))
+                nav.navigate(TransferRoute(peer.id))
+            } else {
+                effect.play(title = "Connected to ${peer.name}", subtitle = if (files.isEmpty()) "Ready to receive" else "Ready to send")
             }
         }
     }

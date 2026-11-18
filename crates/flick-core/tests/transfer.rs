@@ -396,3 +396,30 @@ async fn a_file_that_is_already_open_is_sent_without_reopening_it() {
         data
     );
 }
+
+#[tokio::test]
+async fn a_profile_picture_travels_to_the_other_device() {
+    let a = device("A").await;
+    let b = device("B").await;
+    let target = target_of(&a);
+
+    assert_eq!(
+        b.node.fetch_avatar(&target).await.unwrap(),
+        None,
+        "no picture yet"
+    );
+
+    let picture = vec![0xFF, 0xD8, 1, 2, 3, 0xFF, 0xD9];
+    a.node.set_avatar(picture.clone());
+    assert_eq!(b.node.fetch_avatar(&target).await.unwrap(), Some(picture));
+
+    a.node.set_avatar(vec![7; 70_000]);
+    assert_eq!(
+        b.node.fetch_avatar(&target).await.unwrap(),
+        None,
+        "a picture over 64 KiB is refused"
+    );
+
+    a.node.set_avatar(Vec::new());
+    assert_eq!(b.node.fetch_avatar(&target).await.unwrap(), None, "removed");
+}

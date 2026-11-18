@@ -1,0 +1,37 @@
+[package]
+name = "flick-desktop"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+description = "Flick for Windows and Linux: the same pairing and transfer as the phone, with a Slint interface."
+build = "build.rs"
+
+# A workspace of its own, like the Bluetooth probe: the desktop app needs system libraries
+# (Bluetooth, windowing) that the continuous integration of the main workspace does not install.
+[workspace]
+
+[dependencies]
+flick-core = { path = "../crates/flick-core" }
+flick-proto = { path = "../crates/flick-proto" }
+anyhow = "1"
+btleplug = "0.11"
+dirs = "6"
+open = "5"
+futures = "0.3"
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
+slint = { version = "1", default-features = false, features = ["std", "backend-winit", "renderer-femtovg", "renderer-software", "compat-1-2", "image-default-formats"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "process"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+bluer = { version = "0.17", features = ["bluetoothd"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Devices_Bluetooth_Advertisement", "Devices_WiFiDirect", "Foundation_Collections", "Security_Credentials", "Storage_Streams"] }
+
+[build-dependencies]
+slint-build = "1"
+
+# Key generation and TLS are unusably slow unoptimized, which makes tests take minutes.
+[profile.dev.package."*"]
+opt-level = 3

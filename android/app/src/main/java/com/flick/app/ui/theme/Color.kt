@@ -13,7 +13,6 @@ val Cream = Color(0xFFFFE08A)
 val Sun = Color(0xFFFFD36B)
 val Coral = Color(0xFFF2655A)
 val Plum = Color(0xFF4B2E5C)
-
 /** App background and card surfaces. */
 val Lavender = Color(0xFFFFF8EF)
 val Ink = Color(0xFF1F1A2E)

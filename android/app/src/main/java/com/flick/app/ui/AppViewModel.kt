@@ -6,6 +6,8 @@ import com.flick.app.data.Problems
 import com.flick.app.core.PeerDiscovery
 import com.flick.app.data.ReceiveCoordinator
 import com.flick.app.data.SendSelection
+import com.flick.app.data.TransferManager
+import com.flick.app.data.isRunning
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -13,6 +15,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val receive: ReceiveCoordinator,
+    private val transfers: TransferManager,
     private val discovery: DiscoveryController,
     private val problems: Problems,
     peerDiscovery: PeerDiscovery,
@@ -28,6 +31,10 @@ class AppViewModel @Inject constructor(
 
     /** The last failure, shown in a banner on every screen. */
     val problem = problems.current
+
+    /** True while a file is being sent or received. No gesture starts a send, or plays the effect, during a transfer. */
+    fun transferBusy(): Boolean =
+        transfers.state.value.any { it.isRunning() } || receive.incoming.value?.let { !it.finished } == true
 
     fun dismissProblem() = problems.dismiss()
 

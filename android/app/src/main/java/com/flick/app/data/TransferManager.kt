@@ -49,6 +49,8 @@ class TransferManager @Inject constructor(
     val state: StateFlow<List<TransferProgress>> = _state.asStateFlow()
 
     fun start(peers: List<Peer>, files: List<FileItem>) {
+        // A send that is moving bytes is never restarted: a second start would cancel it and send the files again.
+        if (_state.value.any { it.isRunning() }) return
         stopJobs()
         _state.value = emptyList()
         TransferService.start(context)
@@ -84,6 +86,12 @@ class TransferManager @Inject constructor(
     }
 
     private suspend fun finish(done: TransferProgress, expected: Int) {
+        // First of all, what was sent leaves the list of files waiting. Files chosen while the send ran stay.
+        val all = _state.value
+        if (all.size == expected && all.all { it.status == TransferStatus.Completed }) {
+            val sent = done.files.map { it.uri }.toSet()
+            selection.select(selection.files.value.filterNot { it.uri in sent })
+        }
         transferDao.insert(
             TransferEntity(
                 peerName = done.peer.name,
@@ -108,8 +116,6 @@ class TransferManager @Inject constructor(
                 )
             },
         )
-        val all = _state.value
-        if (all.size == expected && all.all { it.status == TransferStatus.Completed }) selection.clear()
     }
 }
 

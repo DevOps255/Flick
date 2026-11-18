@@ -192,13 +192,36 @@ A different phone is refused with HTTP 409 while a session is open.
 3. Each file is uploaded in turn, as a stream read from an open file descriptor. A picked file on an SD card or from another app needs no copy.
 4. The receiver checks the size and the SHA-256. A damaged file is rejected and no partial file stays on disk.
 
-**Sending on arrival.** When files are already chosen, bringing the phones together is the whole gesture: the pairing starts the send, which waits up to 8 seconds for the link, while the effect plays. With no file chosen the phones only connect, and the user chooses a file and brings the phones together again.
+**Profile photos.** The profile photo is cut down to 160 pixels, as a JPEG of a few kilobytes, and offered at `GET /api/localsend/v2/flick-avatar` (`localsend/.../server/avatar.rs`). A phone fetches it over the same checked TLS link, right after the other phone answered, and shows it on the radar, in the list and on the transfer screen. A phone with no photo answers 404, and a picture over 64 KiB is refused.
+
+**Sending on arrival.** When files are already chosen and the Nearby screen is open, bringing the phones together is the whole gesture: the pairing starts the send, which waits up to 8 seconds for the link, while the effect plays. From any other screen the phones only pair, so choosing another file in the menu is never interrupted. While a file is being sent or received, a gesture starts nothing and plays no effect. A send never restarts while it runs, and when it ends the files that were sent leave the list of files waiting. With no file chosen the phones only connect, and the user chooses a file and brings the phones together again.
 
 **Several files, several phones.** All the files of a send travel in one session, one after the other. With several recipients, one upload runs per phone, at the same time, and each has its own progress.
 The selection is cleared when every recipient finished.
 
 **Receiving.** The node writes into the app's private folder. `data/ReceivedFiles.kt` then copies the file to `Downloads/Flick` through MediaStore, so the file manager
 shows it, and deletes the private copy.
+
+## The desktop app
+
+`desktop/` is the same design on Windows and Linux, with a Slint interface. The Rust crates are shared as they are.
+
+| Part | On the phone | On the PC |
+| --- | --- | --- |
+| Hearing frames | Android Bluetooth scanner | `btleplug` |
+| Being heard | Android advertiser | BlueZ through `bluer`, or the Windows Bluetooth publisher |
+| Pairing | `flick-proto` | `flick-proto`, the same engine |
+| Gesture | Gyroscope tilt, contact | Made on the phone. The PC pairs back when it hears the flag |
+| Reaching the other device | Shared Wi-Fi or a Wi-Fi Direct group | Shared Wi-Fi, or the network of the phone, which the PC joins like any Wi-Fi network |
+| Transfer | `flick-core` | `flick-core` |
+| Effect | AGSL shader on the live screen | The same maths on a snapshot of the window, computed in Rust (`desktop/src/effect.rs`), the same timeline |
+
+A PC cannot create the kind of network a phone makes, it can only join one. The rule of the link planner is that the device with the larger fingerprint prefix creates the group. The identity of a PC is chosen so that its prefix starts with zeros (`desktop/src/identity.rs`, one certificate in 4096 qualifies), which makes it smaller than any phone: the phone always creates the group, with the name and password both sides compute, and the PC joins it with NetworkManager or `netsh` (`desktop/src/wifi.rs`). When the phone goes away the PC returns to its own network. No router, no internet and no shared network are involved.
+
+Two PCs have no phone to make the network, so one of them does, by the same rule: the larger fingerprint prefix creates. On Linux it is a NetworkManager hotspot, asked for the 5 GHz band first (channel 149, then 36, with no radar sharing) and for 2.4 GHz only if the card cannot host there. On Windows it is a Wi-Fi Direct group owner with legacy settings, which any Wi-Fi card sees as an ordinary network. The devices are next to each other, so the fast 5 GHz band is the right one. The other PC joins like it joins a phone's network.
+
+The PC makes no gesture. The phone does, and its next Bluetooth frame carries the flag. The PC hears it and pairs back, so both start together. With files already chosen on either side,
+the pairing starts the send.
 
 ## The AirDrop effect
 

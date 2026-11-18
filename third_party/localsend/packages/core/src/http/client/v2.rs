@@ -343,6 +343,36 @@ impl LsHttpClientV2 {
         Ok(body)
     }
 
+    /// Fetches the profile picture of a device (Flick addition).
+    ///
+    /// GET /api/localsend/v2/flick-avatar
+    ///
+    /// Returns `None` when the device has no picture, or when it is larger than `max_bytes`.
+    pub async fn flick_avatar(
+        &self,
+        protocol: ProtocolType,
+        ip: &str,
+        port: u16,
+        max_bytes: usize,
+    ) -> Result<Option<Vec<u8>>, ClientError> {
+        let url = TargetUrl {
+            version: ApiVersion::V2,
+            protocol: protocol.as_str(),
+            host: ip.to_string(),
+            port,
+            path: "/flick-avatar",
+            params: &[],
+        }
+        .to_string();
+
+        let res = self.client.get(&url).send().await?;
+        if res.status() != StatusCode::OK {
+            return Ok(None);
+        }
+        let bytes = res.bytes().await?;
+        Ok((bytes.len() <= max_bytes).then(|| bytes.to_vec()))
+    }
+
     /// Prepares to download files from a sender (Download API).
     ///
     /// POST /api/localsend/v2/prepare-download

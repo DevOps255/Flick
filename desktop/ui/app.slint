@@ -1,0 +1,998 @@
+// The Flick interface for Windows and Linux. It follows the phone: a warm home screen with Send and Receive,
+// a Nearby screen with the radar and the file tray, and a profile. Colours and shapes are the phone's.
+
+import { ScrollView, LineEdit } from "std-widgets.slint";
+
+export struct PhoneItem {
+    id: string,
+    name: string,
+    initials: string,
+    status: string,
+    ready: bool,
+    proximity: float,
+    color: color,
+}
+
+export struct FileItem {
+    name: string,
+    size: string,
+}
+
+export struct RecentItem {
+    name: string,
+    detail: string,
+}
+
+global Palette {
+    out property <color> accent: #FF8A3D;
+    out property <color> teal: #22C7B8;
+    out property <color> coral: #F2655A;
+    out property <color> plum: #4B2E5C;
+    out property <color> background: #FFF8EF;
+    out property <color> surface: #FFFFFF;
+    out property <color> ink: #1F1A2E;
+    out property <color> muted: #8A8497;
+    out property <color> outline: #F0E6D8;
+}
+
+// The mark of Flick: an F whose stem is a lightning bolt.
+component Logo inherits Path {
+    viewbox-width: 196;
+    viewbox-height: 246;
+    commands: "M90,102 L145,102 L165,63 L111,62 Z M85,62 L41,62 L0,142 L44,145 L2,246 L95,126 L56,123 Z M16,0 L36,40 L177,40 L196,0 Z";
+    fill: #FFAB14;
+}
+
+// A rectangle that can be pressed. It dims a little while it is held.
+component Tap inherits Rectangle {
+    callback clicked();
+    in property <bool> enabled: true;
+    @children
+    area := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+    opacity: !root.enabled ? 0.45 : (area.pressed ? 0.85 : 1.0);
+    animate opacity { duration: 90ms; }
+}
+
+component Avatar inherits Rectangle {
+    in property <string> initials;
+    in property <color> tint: Palette.accent;
+    width: 44px;
+    height: 44px;
+    border-radius: self.width / 2;
+    background: root.tint;
+    Text {
+        text: root.initials;
+        color: white;
+        font-weight: 600;
+        font-size: root.width * 0.36;
+    }
+}
+
+component ActionCard inherits Tap {
+    in property <string> label;
+    in property <color> tint;
+    // "up" for sending, "down" for receiving.
+    in property <string> arrow: "up";
+    height: 148px;
+    border-radius: 28px;
+    background: root.tint;
+    Text {
+        x: 18px;
+        y: 16px;
+        text: root.label;
+        color: white;
+        font-size: 22px;
+        font-weight: 700;
+    }
+    Path {
+        x: root.width - 18px - self.width;
+        y: root.height - 18px - self.height;
+        width: 56px;
+        height: 56px;
+        viewbox-width: 40;
+        viewbox-height: 40;
+        commands: root.arrow == "up" ? "M20,36 L20,6 M7,19 L20,6 L33,19" : "M20,4 L20,34 M7,21 L20,34 L33,21";
+        stroke: #FFFFFFE6;
+        stroke-width: 4px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+    }
+}
+
+component SectionTitle inherits Text {
+    font-size: 17px;
+    font-weight: 600;
+    color: Palette.ink;
+}
+
+component FileRow inherits Rectangle {
+    in property <string> name;
+    in property <string> detail;
+    // Shown when the row can be removed from a list.
+    in property <bool> removable: false;
+    callback clicked();
+    callback removed();
+    height: 62px;
+    border-radius: 16px;
+    background: Palette.surface;
+    TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 12px;
+        Rectangle {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: #FF8A3D1F;
+            Rectangle {
+                width: 16px;
+                height: 20px;
+                border-radius: 3px;
+                background: Palette.accent;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            Text {
+                text: root.name;
+                color: Palette.ink;
+                font-size: 15px;
+                overflow: elide;
+            }
+            Text {
+                text: root.detail;
+                color: Palette.muted;
+                font-size: 12px;
+                overflow: elide;
+            }
+        }
+        if root.removable: Tap {
+            width: 36px;
+            height: 36px;
+            border-radius: 18px;
+            clicked => {
+                root.removed();
+            }
+            Text {
+                text: "x";
+                color: Palette.muted;
+                font-size: 18px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+// The file card of the pairing effect. It is shown for the instant when the snapshot of the window is taken,
+// so the wave of the effect crosses it like everything else.
+component EffectCard inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    background: transparent;
+    Rectangle {
+        width: min(root.width - 80px, 320px);
+        height: 112px;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        border-radius: 24px;
+        background: Palette.surface;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000033;
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            Text {
+                text: root.title;
+                color: Palette.ink;
+                font-size: 16px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+            Text {
+                text: root.subtitle;
+                color: Palette.muted;
+                font-size: 13px;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+// The chosen file, large, with the rest of the window blurred, like the pause menu of a game. The background is a
+// picture made by the program, the card is drawn here. The card is placed and scaled by the program, frame by frame.
+component Spotlight inherits Rectangle {
+    in property <image> background-image;
+    in property <image> preview;
+    in property <bool> has-preview;
+    in property <string> title;
+    in property <string> detail;
+    in property <string> extension;
+    in property <float> card-scale;
+    in property <float> card-dx;
+    in property <float> card-dy;
+    in property <float> card-opacity;
+    in property <bool> waiting;
+    callback grab();
+    callback dismiss();
+    Image {
+        source: root.background-image;
+        width: root.width;
+        height: root.height;
+        image-fit: fill;
+    }
+    Rectangle {
+        property <length> full-width: min(root.width * 0.78, 360px);
+        width: self.full-width * root.card-scale;
+        height: self.full-width * 1.15 * root.card-scale;
+        x: (root.width - self.width) / 2 + root.card-dx * root.width;
+        y: (root.height - self.height) / 2 + root.card-dy * root.height - 24px;
+        border-radius: 28px * root.card-scale;
+        background: Palette.surface;
+        opacity: root.card-opacity;
+        drop-shadow-blur: 44px;
+        drop-shadow-color: #00000066;
+        VerticalLayout {
+            padding: 18px * root.card-scale;
+            spacing: 12px * root.card-scale;
+            Rectangle {
+                vertical-stretch: 1;
+                border-radius: 18px * root.card-scale;
+                background: #FF8A3D1F;
+                if root.has-preview: Image {
+                    source: root.preview;
+                    image-fit: contain;
+                }
+                if !root.has-preview: Text {
+                    text: root.extension;
+                    color: Palette.accent;
+                    font-size: 56px * root.card-scale;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            Text {
+                text: root.title;
+                color: Palette.ink;
+                font-size: 18px * root.card-scale;
+                font-weight: 600;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+            Text {
+                text: root.detail;
+                color: Palette.muted;
+                font-size: 13px * root.card-scale;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+    if root.waiting: Tap {
+        width: 40px;
+        height: 40px;
+        x: root.width - 56px;
+        y: 24px;
+        border-radius: 20px;
+        background: #FFFFFFCC;
+        clicked => {
+            root.dismiss();
+        }
+        Text {
+            text: "x";
+            color: Palette.ink;
+            font-size: 20px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+    if root.waiting: Tap {
+        width: 200px;
+        height: 44px;
+        x: (root.width - self.width) / 2;
+        y: root.height - 96px;
+        border-radius: 22px;
+        background: Palette.accent;
+        clicked => {
+            root.grab();
+        }
+        Text {
+            text: "Grab";
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component HomePage inherits Rectangle {
+    in property <string> profile-initial;
+    in property <[RecentItem]> recents;
+    callback send();
+    callback receive();
+    callback profile();
+    callback open-recent(int);
+    callback remove-recent(int);
+
+    // The colour behind the top of the home screen. To make it cream like the rest of the app, replace the
+    // gradient with: Palette.background
+    property <brush> header-background: @linear-gradient(180deg, #FFD36B 0%, #FFE08A 100%);
+
+    background: root.header-background;
+    VerticalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 24px;
+        padding-bottom: 24px;
+        spacing: 22px;
+        HorizontalLayout {
+            height: 48px;
+            Logo {
+                width: 32px;
+                height: 40px;
+                y: 4px;
+            }
+            Text {
+                text: "lick";
+                font-size: 34px;
+                font-weight: 700;
+                color: Palette.ink;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            Tap {
+                width: 44px;
+                height: 44px;
+                clicked => {
+                    root.profile();
+                }
+                Avatar {
+                    initials: root.profile-initial;
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 14px;
+            ActionCard {
+                label: "Send";
+                tint: Palette.accent;
+                arrow: "up";
+                clicked => {
+                    root.send();
+                }
+            }
+            ActionCard {
+                label: "Receive";
+                tint: Palette.coral;
+                arrow: "down";
+                clicked => {
+                    root.receive();
+                }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: 28px;
+            background: Palette.background;
+            VerticalLayout {
+                padding: 20px;
+                spacing: 12px;
+                SectionTitle {
+                    text: "Recent files";
+                }
+                if root.recents.length == 0: Text {
+                    text: "Files you send or receive show up here.";
+                    color: Palette.muted;
+                    font-size: 14px;
+                    wrap: word-wrap;
+                }
+                ScrollView {
+                    VerticalLayout {
+                        spacing: 10px;
+                        for item[index] in root.recents: FileRow {
+                            name: item.name;
+                            detail: item.detail;
+                            removable: true;
+                            clicked => {
+                                root.open-recent(index);
+                            }
+                            removed => {
+                                root.remove-recent(index);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component NearbyPage inherits Rectangle {
+    in property <[PhoneItem]> phones;
+    in property <[FileItem]> files;
+    in property <string> hint;
+    in-out property <bool> multi;
+    in property <bool> holding;
+    callback choose-files();
+    callback remove-file(int);
+    callback send-to(int);
+    callback multi-changed(bool);
+    callback release();
+
+    background: Palette.background;
+    VerticalLayout {
+        padding: 20px;
+        spacing: 10px;
+        HorizontalLayout {
+            height: 36px;
+            Text {
+                text: "flick nearby";
+                font-size: 26px;
+                font-weight: 600;
+                color: Palette.ink;
+                vertical-alignment: center;
+            }
+        }
+        HorizontalLayout {
+            height: 40px;
+            spacing: 10px;
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+                Text {
+                    text: "Share with several phones";
+                    font-size: 15px;
+                    color: Palette.ink;
+                }
+                Text {
+                    text: "Only the closest phone receives";
+                    font-size: 11px;
+                    color: Palette.muted;
+                }
+            }
+            Tap {
+                width: 52px;
+                height: 30px;
+                border-radius: 15px;
+                background: root.multi ? Palette.accent : #E6E0EC;
+                clicked => {
+                    root.multi = !root.multi;
+                    root.multi-changed(root.multi);
+                }
+                Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: white;
+                    y: 3px;
+                    x: root.multi ? 25px : 3px;
+                    animate x { duration: 140ms; easing: ease-out; }
+                }
+            }
+        }
+        // The radar. A phone sits closer to the centre when its signal is stronger.
+        radar := Rectangle {
+            vertical-stretch: 1;
+            min-height: 180px;
+            for r in [0.32, 0.55, 0.78, 1.0]: Rectangle {
+                width: min(radar.width, radar.height) * r;
+                height: self.width;
+                x: (radar.width - self.width) / 2;
+                y: (radar.height - self.height) / 2;
+                border-radius: self.width / 2;
+                border-width: 1px;
+                border-color: Palette.outline;
+            }
+            Rectangle {
+                width: 52px;
+                height: 52px;
+                x: (radar.width - self.width) / 2;
+                y: (radar.height - self.height) / 2;
+                border-radius: 26px;
+                background: white;
+                Rectangle {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 9px;
+                    border-width: 3px;
+                    border-color: Palette.accent;
+                }
+            }
+            for phone[index] in root.phones: Rectangle {
+                width: 44px;
+                height: 44px;
+                property <length> reach: (1.0 - phone.proximity) * (min(radar.width, radar.height) / 2 - 30px) + 40px;
+                x: radar.width / 2 + self.reach * Math.cos((index * 2.4) * 1rad) - 22px;
+                y: radar.height / 2 + self.reach * Math.sin((index * 2.4) * 1rad) - 22px;
+                animate x, y { duration: 300ms; easing: ease-out; }
+                Avatar {
+                    initials: phone.initials;
+                    tint: phone.color;
+                }
+            }
+        }
+        if root.holding: Tap {
+            height: 44px;
+            border-radius: 22px;
+            background: Palette.teal;
+            clicked => {
+                root.release();
+            }
+            Text {
+                text: "Release here";
+                color: white;
+                font-size: 15px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        if root.hint != "": Text {
+            text: root.hint;
+            color: Palette.muted;
+            font-size: 13px;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+        Rectangle {
+            border-radius: 24px;
+            background: Palette.surface;
+            height: 250px;
+            VerticalLayout {
+                padding: 16px;
+                spacing: 8px;
+                SectionTitle {
+                    text: "Nearby friends";
+                }
+                if root.phones.length == 0: Text {
+                    text: "Looking for phones. Open Flick on the phone and hold it close.";
+                    color: Palette.muted;
+                    font-size: 14px;
+                    wrap: word-wrap;
+                }
+                ScrollView {
+                    height: 60px;
+                    VerticalLayout {
+                        spacing: 8px;
+                        for phone[index] in root.phones: HorizontalLayout {
+                            spacing: 10px;
+                            height: 44px;
+                            Avatar {
+                                initials: phone.initials;
+                                tint: phone.color;
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: phone.name;
+                                    color: Palette.ink;
+                                    font-size: 15px;
+                                }
+                                Text {
+                                    text: phone.status;
+                                    color: phone.ready ? Palette.teal : Palette.muted;
+                                    font-size: 12px;
+                                }
+                            }
+                            Tap {
+                                width: 70px;
+                                height: 34px;
+                                border-radius: 17px;
+                                background: Palette.accent;
+                                enabled: phone.ready && root.files.length > 0;
+                                clicked => {
+                                    root.send-to(index);
+                                }
+                                Text {
+                                    text: "Send";
+                                    color: white;
+                                    font-size: 14px;
+                                    font-weight: 600;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+                // The file tray: each file can be taken off the list on its own.
+                if root.files.length == 0: Tap {
+                    height: 44px;
+                    border-radius: 22px;
+                    background: Palette.accent;
+                    clicked => {
+                        root.choose-files();
+                    }
+                    Text {
+                        text: "Choose a file to send";
+                        color: white;
+                        font-size: 15px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                if root.files.length > 0: VerticalLayout {
+                    spacing: 6px;
+                    ScrollView {
+                        height: 78px;
+                        VerticalLayout {
+                            spacing: 6px;
+                            for file[index] in root.files: FileRow {
+                                height: 36px;
+                                name: file.name;
+                                detail: file.size;
+                                removable: true;
+                                removed => {
+                                    root.remove-file(index);
+                                }
+                            }
+                        }
+                    }
+                    Tap {
+                        height: 28px;
+                        clicked => {
+                            root.choose-files();
+                        }
+                        Text {
+                            text: "Change files";
+                            color: Palette.accent;
+                            font-size: 14px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ProfilePage inherits Rectangle {
+    in property <string> profile-initial;
+    in property <string> profile-name;
+    in property <string> profile-id;
+    callback save-name(string);
+    background: Palette.background;
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        alignment: start;
+        Rectangle {
+            height: 32px;
+        }
+        Avatar {
+            width: 112px;
+            height: 112px;
+            initials: root.profile-initial;
+        }
+        Text {
+            text: "Your name";
+            color: Palette.muted;
+            font-size: 13px;
+        }
+        name-field := LineEdit {
+            text: root.profile-name;
+            placeholder-text: "Your name";
+        }
+        Text {
+            text: "Other phones show this name. A new name reaches them after you restart Flick.";
+            color: Palette.muted;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+        Tap {
+            height: 46px;
+            border-radius: 23px;
+            background: Palette.accent;
+            clicked => {
+                root.save-name(name-field.text);
+            }
+            Text {
+                text: "Save name";
+                color: white;
+                font-size: 15px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: root.profile-id;
+            color: Palette.muted;
+            font-size: 12px;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component NavBar inherits Rectangle {
+    in-out property <int> page;
+    height: 64px;
+    border-radius: 32px;
+    background: #F4ECE0;
+    HorizontalLayout {
+        padding: 6px;
+        spacing: 6px;
+        for entry[index] in ["Home", "Nearby", "Profile"]: Tap {
+            border-radius: 26px;
+            background: root.page == index ? Palette.accent : transparent;
+            clicked => {
+                root.page = index;
+            }
+            Text {
+                text: entry;
+                font-size: 14px;
+                font-weight: 600;
+                color: root.page == index ? white : Palette.muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+// A card for a transfer in progress, sent or received.
+component TransferCard inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <float> progress;
+    in property <bool> finished;
+    in property <bool> ok;
+    in property <bool> can-cancel;
+    callback cancel();
+    callback dismiss();
+    background: #0000004D;
+    TouchArea { }
+    Rectangle {
+        width: min(root.width - 48px, 360px);
+        height: 210px;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        border-radius: 28px;
+        background: Palette.surface;
+        VerticalLayout {
+            padding: 22px;
+            spacing: 10px;
+            Text {
+                text: root.title;
+                color: Palette.ink;
+                font-size: 17px;
+                font-weight: 600;
+                wrap: word-wrap;
+            }
+            Text {
+                text: root.detail;
+                color: root.finished && !root.ok ? Palette.coral : Palette.muted;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+            Rectangle {
+                height: 8px;
+                border-radius: 4px;
+                background: Palette.outline;
+                Rectangle {
+                    x: 0px;
+                    width: parent.width * clamp(root.progress, 0.0, 1.0);
+                    border-radius: 4px;
+                    background: root.finished && !root.ok ? Palette.coral : Palette.teal;
+                }
+            }
+            Rectangle {
+                vertical-stretch: 1;
+            }
+            Tap {
+                height: 42px;
+                border-radius: 21px;
+                background: root.finished ? Palette.teal : Palette.coral;
+                visible: root.finished || root.can-cancel;
+                clicked => {
+                    if (root.finished) {
+                        root.dismiss();
+                    } else {
+                        root.cancel();
+                    }
+                }
+                Text {
+                    text: root.finished ? "Done" : "Cancel";
+                    color: white;
+                    font-size: 15px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Flick";
+    min-width: 380px;
+    min-height: 640px;
+    preferred-width: 440px;
+    preferred-height: 880px;
+    background: Palette.background;
+
+    in-out property <int> page: 0;
+    in property <string> profile-name;
+    in property <string> profile-initial;
+    in property <string> profile-id;
+    in property <[PhoneItem]> phones;
+    in property <[FileItem]> files;
+    in property <[RecentItem]> recents;
+    in property <string> hint;
+    in-out property <bool> multi;
+
+    // The effect is a picture computed by the program, frame by frame, from a snapshot of this window.
+    in property <bool> spot-active;
+    in property <bool> spot-waiting;
+    in property <bool> holding;
+    in property <image> spot-background;
+    in property <image> spot-preview;
+    in property <bool> spot-has-preview;
+    in property <string> spot-title;
+    in property <string> spot-detail;
+    in property <string> spot-extension;
+    in property <float> spot-scale: 1.0;
+    in property <float> spot-dx;
+    in property <float> spot-dy;
+    in property <float> spot-opacity: 1.0;
+
+    in property <bool> fx-active;
+    in property <image> fx-image;
+    in property <bool> fx-card;
+    in property <string> fx-title;
+    in property <string> fx-subtitle;
+
+    in property <bool> card-visible;
+    in property <string> card-title;
+    in property <string> card-detail;
+    in property <float> card-progress;
+    in property <bool> card-finished;
+    in property <bool> card-ok;
+    in property <bool> card-can-cancel;
+
+    callback choose-files();
+    callback remove-file(int);
+    callback open-recent(int);
+    callback remove-recent(int);
+    callback send-to(int);
+    callback multi-changed(bool);
+    callback cancel-transfer();
+    callback dismiss-card();
+    callback save-name(string);
+    callback grab();
+    callback release();
+    callback dismiss-spotlight();
+
+    VerticalLayout {
+        Rectangle {
+            vertical-stretch: 1;
+            if root.page == 0: HomePage {
+                profile-initial: root.profile-initial;
+                recents: root.recents;
+                send => {
+                    root.choose-files();
+                    root.page = 1;
+                }
+                receive => {
+                    root.page = 1;
+                }
+                profile => {
+                    root.page = 2;
+                }
+                open-recent(index) => {
+                    root.open-recent(index);
+                }
+                remove-recent(index) => {
+                    root.remove-recent(index);
+                }
+            }
+            if root.page == 1: NearbyPage {
+                phones: root.phones;
+                files: root.files;
+                hint: root.hint;
+                holding: root.holding;
+                release => {
+                    root.release();
+                }
+                multi <=> root.multi;
+                choose-files => {
+                    root.choose-files();
+                }
+                remove-file(index) => {
+                    root.remove-file(index);
+                }
+                send-to(index) => {
+                    root.send-to(index);
+                }
+                multi-changed(on) => {
+                    root.multi-changed(on);
+                }
+            }
+            if root.page == 2: ProfilePage {
+                profile-initial: root.profile-initial;
+                profile-name: root.profile-name;
+                profile-id: root.profile-id;
+                save-name(name) => {
+                    root.save-name(name);
+                }
+            }
+        }
+        Rectangle {
+            height: 84px;
+            background: Palette.background;
+            NavBar {
+                x: 20px;
+                y: 10px;
+                width: parent.width - 40px;
+                page <=> root.page;
+            }
+        }
+    }
+
+    if root.card-visible: TransferCard {
+        title: root.card-title;
+        detail: root.card-detail;
+        progress: root.card-progress;
+        finished: root.card-finished;
+        ok: root.card-ok;
+        can-cancel: root.card-can-cancel;
+        cancel => {
+            root.cancel-transfer();
+        }
+        dismiss => {
+            root.dismiss-card();
+        }
+    }
+
+    if root.spot-active: Spotlight {
+        background-image: root.spot-background;
+        preview: root.spot-preview;
+        has-preview: root.spot-has-preview;
+        title: root.spot-title;
+        detail: root.spot-detail;
+        extension: root.spot-extension;
+        card-scale: root.spot-scale;
+        card-dx: root.spot-dx;
+        card-dy: root.spot-dy;
+        card-opacity: root.spot-opacity;
+        waiting: root.spot-waiting;
+        grab => {
+            root.grab();
+        }
+        dismiss => {
+            root.dismiss-spotlight();
+        }
+    }
+
+    if root.fx-card: EffectCard {
+        title: root.fx-title;
+        subtitle: root.fx-subtitle;
+    }
+
+    if root.fx-active: Image {
+        source: root.fx-image;
+        width: root.width;
+        height: root.height;
+        image-fit: fill;
+    }
+}

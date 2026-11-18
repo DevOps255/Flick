@@ -22,7 +22,7 @@
   <a href="GUIDE.md">Installation guide (French)</a>
 </p>
 
-Flick is a free and open source app that sends files between phones that are next to each other.
+Flick is a free and open source app that sends files between phones, and between a phone and a PC, when they are next to each other.
 Pick a file, tilt your phone or touch it to the other one, and the transfer starts. Nothing to scan,
 nothing to type, no account, no internet, no cloud.
 
@@ -36,7 +36,7 @@ nothing to type, no account, no internet, no cloud.
 2. Choose what to send: documents, downloads, videos, music, apps or photos.
 3. Tilt your phone, or hold it against the other one. A glow climbs, gathers at the notch, and a wave
    strikes down the screen, with a vibration that grows with the glow. Both phones play it together.
-4. With a file already chosen, the transfer starts by itself as the phones meet. Otherwise, choose a file and bring the phones together again.
+4. With a file already chosen and the Nearby screen open, the transfer starts by itself as the phones meet. Otherwise, choose a file and bring the phones together again.
    The file travels over a direct, encrypted Wi-Fi link.
 5. The other phone saves it in `Downloads/Flick`.
 
@@ -62,6 +62,8 @@ nothing to type, no account, no internet, no cloud.
   every ready phone receives them at the same time.
 - **A real file browser.** Six categories, fuzzy search that forgives typos, sort by name, date or size, grid and list views,
   thumbnails, installed apps with their icons.
+- **Your photo travels with you.** The profile photo is sent to the phones around, over the encrypted link, so a friend sees your face on the radar and not only an initial.
+- **No router needed.** Between a phone and a PC, or two PCs, with no network in common, one device creates a private network and the other joins it by itself, then returns to its own network.
 - **Recent files that work.** Open, remove from the list, or delete a received file from the phone.
 - **Made to be fast.** The Rust core does the protocol, the sensors maths and the pairing. Kotlin and Compose do the screens.
 
@@ -108,6 +110,7 @@ The full design, with the frame layout, the pairing rules and the sequence of a 
 | Core | Rust 1.97.1, Tokio, a vendored LocalSend core (HTTPS server and client, certificates) |
 | Bridge | UniFFI 0.28 generates the Kotlin API from Rust, `cargo-ndk` builds `libflick_ffi.so` for every Android processor |
 | App | Kotlin 2.0, Jetpack Compose with Material 3, Navigation Compose, Hilt, Room, DataStore, Coroutines and Flow |
+| Desktop | Slint for the interface, `btleplug` and BlueZ (`bluer`) or the Windows Bluetooth API for the radio, the same Rust core as the phone |
 | Radio | Bluetooth Low Energy advertising and scanning, Wi-Fi Direct (`WifiP2pManager`), shared Wi-Fi |
 | Effects | AGSL runtime shader on Android 13 and later, blur on Android 12 |
 | Files | MediaStore, Coil thumbnails with a video decoder, FuzzyWuzzy search |
@@ -178,6 +181,14 @@ apksigner verify --verbose Flick.apk
 
 Do not enable resource shrinking: the screens look their artwork up by name, and the shrinker would remove it.
 
+### The desktop app
+
+```bash
+cargo run --release --manifest-path desktop/Cargo.toml
+```
+
+On Linux install `libdbus-1-dev pkg-config libfontconfig1-dev libxkbcommon-dev` first. Details are in [desktop/README.md](desktop/README.md).
+
 ### Artwork
 
 Drop your PNG files into `android/app/src/main/res/drawable-nodpi/`, with the names listed in
@@ -214,6 +225,7 @@ Flick
 │   ├── flick-ffi/               UniFFI bindings exposed to Kotlin
 │   └── flick-acoustic/          Data over ultrasound with ggwave, kept from the first version
 ├── third_party/                 LocalSend, DashBeam and ggwave, vendored with their licenses
+├── desktop/                     Flick for Windows and Linux (Rust, Slint)
 ├── tools/ble-probe/             PC tool that prints the Bluetooth signal strength of Flick phones
 ├── scripts/                     Build, binding generation and check scripts
 ├── docs/                        Icon guide, PC probe guide, images
